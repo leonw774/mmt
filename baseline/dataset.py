@@ -6,8 +6,10 @@ import pprint
 import sys
 
 import numpy as np
+import muspy
 import torch
 import torch.utils.data
+from tqdm import tqdm
 
 import representation_mmm
 import representation_remi
@@ -51,7 +53,7 @@ def parse_args(args=None, namespace=None):
     )
     parser.add_argument(
         "--aug",
-        action=argparse.BooleanOptionalAction,
+        action='store_true',
         default=True,
         help="whether to use data augmentation",
     )
@@ -111,6 +113,7 @@ class MusicDataset(torch.utils.data.Dataset):
         encoding,
         indexer,
         encode_fn,
+        representation,
         max_seq_len=None,
         max_beat=None,
         use_csv=False,
@@ -123,10 +126,12 @@ class MusicDataset(torch.utils.data.Dataset):
         self.encoding = encoding
         self.indexer = indexer
         self.encode_fn = encode_fn
+        self.representation = representation
         self.max_seq_len = max_seq_len
         self.max_beat = max_beat
         self.use_csv = use_csv
         self.use_augmentation = use_augmentation
+        self.has_remi_format = set()
 
     def __len__(self):
         return len(self.names)
@@ -136,10 +141,35 @@ class MusicDataset(torch.utils.data.Dataset):
         name = self.names[idx]
 
         # Load data
-        if self.use_csv:
-            notes = utils.load_csv(self.data_dir / f"{name}.csv")
+        if self.representation == 'remi':
+            name_remi = name + '_remi'
+            if name_remi in self.has_remi_format:
+                if self.use_csv:
+                    notes = utils.load_csv(self.data_dir / f"{name_remi}.csv")
+                else:
+                    notes = np.load(self.data_dir / f"{name_remi}.npy")
+            else:
+                music = muspy.load(self.data_dir / f"{name}.json")
+                notes = representation_remi.extract_notes(music, representation_remi.RESOLUTION)
+                # Filter out bad files
+                if len(notes) < 50:
+                    return
+
+                # Set start beat to zero
+                notes[:, 0] = notes[:, 0] - notes[0, 0]
+                # Save the notes as a CSV file
+                representation_remi.save_csv_notes((self.data_dir / name_remi).with_suffix(".csv"), notes)
+
+                # Save the notes as a NPY file
+                np.save((self.data_dir / name_remi).with_suffix(".npy"), notes)
+
+                self.has_remi_format.add(name)
+
         else:
-            notes = np.load(self.data_dir / f"{name}.npy")
+            if self.use_csv:
+                notes = utils.load_csv(self.data_dir / f"{name}.csv")
+            else:
+                notes = np.load(self.data_dir / f"{name}.npy")
 
         # Check the shape of the loaded notes
         assert notes.shape[1] == 5
@@ -152,7 +182,7 @@ class MusicDataset(torch.utils.data.Dataset):
 
             # Randomly select a starting beat
             n_beats = notes[-1, 0] + 1
-            if n_beats > self.max_beat:
+            if self.max_beat is not None and n_beats > self.max_beat:
                 trial = 0
                 # Avoid section with too few notes
                 while trial < 10:
@@ -236,10 +266,14 @@ def main():
         encoding=encoding,
         indexer=indexer,
         encode_fn=representation.encode_notes,
-        max_seq_len=args.max_seq_len,
-        max_beat=args.max_beat,
+        representation=args.representation,
+        # max_seq_len=args.max_seq_len,
+        max_seq_len=None,
+        # max_beat=args.max_beat,
+        max_beat=None,
         use_csv=args.use_csv,
-        use_augmentation=args.aug,
+        # use_augmentation=args.aug,
+        use_augmentation=False
     )
     data_loader = torch.utils.data.DataLoader(
         dataset, args.batch_size, True, collate_fn=MusicDataset.collate
@@ -249,7 +283,7 @@ def main():
     n_batches = 0
     n_samples = 0
     seq_lens = []
-    for i, batch in enumerate(data_loader):
+    for i, batch in tqdm(enumerate(data_loader)):
         n_batches += 1
         n_samples += len(batch["name"])
         seq_lens.extend(int(l) for l in batch["seq_len"])
@@ -265,9 +299,20 @@ def main():
     )
 
     # Print sequence length statistics
-    logging.info(f"Avg sequence length: {np.mean(seq_lens):2f}")
+    logging.info(f"Avg sequence length: {np.mean(seq_lens):4f}")
     logging.info(f"Min sequence length: {min(seq_lens)}")
     logging.info(f"Max sequence length: {max(seq_lens)}")
+
+    note_nums = []
+    for name in dataset.names:
+        if dataset.use_csv:
+            notes = utils.load_csv(dataset.data_dir / f"{name}.csv")
+        else:
+            notes = np.load(dataset.data_dir / f"{name}.npy")
+        note_nums.append(notes.shape[0])
+
+    logging.info(f"Tot note number: {np.sum(note_nums)}")
+    logging.info(f"Avg note number: {np.mean(note_nums):4f}")
 
 
 if __name__ == "__main__":

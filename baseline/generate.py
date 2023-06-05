@@ -159,7 +159,8 @@ def main():
     if args.dataset is not None:
         if args.names is None:
             args.names = pathlib.Path(
-                f"data/{args.dataset}/processed/test-names.txt"
+                # f"data/{args.dataset}/processed/test-names.txt"
+                f"data/{args.dataset}/processed/my-test-names.txt"
             )
         if args.in_dir is None:
             args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/notes/")
@@ -337,6 +338,42 @@ def main():
                 encoding,
                 vocabulary,
                 representation,
+            )
+
+            if train_args["representation"] == "mmm":
+                continue
+
+            # --------------------
+            # 16-beat continuation
+            # --------------------
+
+            # Get output start tokens
+            cond_len = 0
+            for n, code in enumerate(batch["seq"][0]):
+                if vocabulary[code].startswith('beat'):
+                    if int(vocabulary[code][5:]) >= 16:
+                        cond_len = n
+                        break
+            tgt_start = batch["seq"][:1, :cond_len].to(device)
+
+            # Generate new samples
+            generated = model.generate(
+                tgt_start,
+                args.seq_len,
+                eos_token=eos,
+                temperature=args.temperature,
+                filter_logits_fn=args.filter,
+                filter_thres=args.filter_threshold,
+                monotonicity_dim=("type", "beat"),
+            )
+            generated_np = torch.cat((tgt_start, generated), 1).cpu().numpy()
+
+            # Save results
+            save_result(
+                f"{i}_16-beat-continuation",
+                generated_np[0],
+                sample_dir,
+                encoding,
             )
 
 

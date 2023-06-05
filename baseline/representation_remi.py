@@ -52,6 +52,13 @@ DURATION_MAP = {
     for i in range(1, MAX_DURATION + 1)
 }
 
+KNOWN_VELOCITIES = {16, 32, 48, 64, 80, 96, 112}
+
+VELOCITY_MAP = {
+    i: int(max(1, min(7, round(i / 16))) * 16)
+    for i in range(1,128)
+}
+
 # Instrument
 PROGRAM_INSTRUMENT_MAP = {
     # Pianos
@@ -298,6 +305,7 @@ KNOWN_EVENTS.extend(
 )
 KNOWN_EVENTS.extend(f"pitch_{i}" for i in range(128))
 KNOWN_EVENTS.extend(f"duration_{i}" for i in KNOWN_DURATIONS)
+KNOWN_EVENTS.extend(f"velocity_{i}" for i in KNOWN_VELOCITIES)
 EVENT_CODE_MAPS = {event: i for i, event in enumerate(KNOWN_EVENTS)}
 CODE_EVENT_MAPS = utils.inverse_dict(EVENT_CODE_MAPS)
 
@@ -341,6 +349,7 @@ def get_encoding():
         "program_instrument_map": PROGRAM_INSTRUMENT_MAP,
         "instrument_program_map": INSTRUMENT_PROGRAM_MAP,
         "duration_map": DURATION_MAP,
+        "velocity_map": VELOCITY_MAP,
         "event_code_map": EVENT_CODE_MAPS,
         "code_event_map": CODE_EVENT_MAPS,
     }
@@ -349,7 +358,7 @@ def get_encoding():
 def load_encoding(filename):
     """Load encoding configurations from a JSON file."""
     encoding = utils.load_json(filename)
-    for key in ("program_instrument_map", "code_event_map", "duration_map"):
+    for key in ("program_instrument_map", "code_event_map", "duration_map", "velocity_map"):
         encoding[key] = {
             int(k) if k != "null" else None: v
             for k, v in encoding[key].items()
@@ -362,7 +371,7 @@ def extract_notes(music, resolution):
 
     Each row of the output is a note specified as follows.
 
-        (beat, position, pitch, duration, program)
+        (beat, position, pitch, duration, program, velocity)
 
     """
     # Check resolution
@@ -374,7 +383,7 @@ def extract_notes(music, resolution):
         for note in track:
             beat, position = divmod(note.time, resolution)
             notes.append(
-                (beat, position, note.pitch, note.duration, track.program)
+                (beat, position, note.pitch, note.duration, track.program, note.velocity)
             )
 
     # Deduplicate and sort the notes
@@ -398,13 +407,14 @@ def encode_notes(notes, encoding, indexer):
     # Get maps
     duration_map = encoding["duration_map"]
     program_instrument_map = encoding["program_instrument_map"]
+    velocity_map = encoding["velocity_map"]
 
     # Start the codes with an SOS event
     codes = [indexer["start-of-song"]]
 
     # Encode the notes
     last_beat = 0
-    for beat, position, pitch, duration, program in notes:
+    for beat, position, pitch, duration, program, velocity in notes:
         # Skip if max_beat has reached
         if beat > max_beat:
             continue
@@ -421,6 +431,7 @@ def encode_notes(notes, encoding, indexer):
         codes.append(
             indexer[f"duration_{duration_map[min(duration, max_duration)]}"]
         )
+        codes.append(indexer[f"velocity_{velocity_map[velocity]}"])
 
     # End the codes with an EOS event
     codes.append(indexer["end-of-song"])
@@ -456,6 +467,7 @@ def decode_notes(data, encoding, vocabulary):
     program = None
     pitch = None
     duration = None
+    velocity = None
 
     # Decode the codes into a sequence of notes
     notes = []
@@ -485,6 +497,8 @@ def decode_notes(data, encoding, vocabulary):
             pitch = int(event.split("_")[1])
         elif event.startswith("duration"):
             duration = int(event.split("_")[1])
+        elif event.startswith("velocity"):
+            velocity = int(event.split("_")[1])
             if (
                 position is None
                 or program is None
@@ -492,7 +506,7 @@ def decode_notes(data, encoding, vocabulary):
                 or duration is None
             ):
                 continue
-            notes.append((beat, position, pitch, duration, program))
+            notes.append((beat, position, pitch, duration, program, velocity))
         else:
             raise ValueError(f"Unknown event type for: {event}")
 
@@ -505,15 +519,15 @@ def reconstruct(notes, resolution):
     music = muspy.Music(resolution=resolution, tempos=[muspy.Tempo(0, 100)])
 
     # Append the tracks
-    programs = sorted(set(note[-1] for note in notes))
+    programs = sorted(set(note[-2] for note in notes))
     for program in programs:
         music.tracks.append(muspy.Track(program))
 
     # Append the notes
-    for beat, position, pitch, duration, program in notes:
+    for beat, position, pitch, duration, program, velocity in notes:
         time = beat * resolution + position
         track_idx = programs.index(program)
-        music[track_idx].notes.append(muspy.Note(time, pitch, duration))
+        music[track_idx].notes.append(muspy.Note(time, pitch, duration, velocity))
 
     return music
 
@@ -557,6 +571,7 @@ def dump(data, vocabulary):
             event.startswith("instrument")
             or event.startswith("pitch")
             or event.startswith("duration")
+            or event.startswith("velocity")
         ):
             lines[-1] = f"{lines[-1]} {event}"
         else:
@@ -579,7 +594,7 @@ def save_csv_notes(filename, data):
         data,
         fmt="%d",
         delimiter=",",
-        header="beat,position,pitch,duration,program",
+        header="beat,position,pitch,duration,program,velocity",
         comments="",
     )
 

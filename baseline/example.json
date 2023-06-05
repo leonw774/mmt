@@ -10,7 +10,7 @@
 		"source_filename": "example.json",
 		"source_format": "json"
 	},
-	"resolution": 24,
+	"resolution": 12,
 	"tempos": [
 		{
 			"time": 0,

@@ -177,7 +177,8 @@ def main():
     if args.dataset is not None:
         if args.names is None:
             args.names = pathlib.Path(
-                f"data/{args.dataset}/processed/test-names.txt"
+                # f"data/{args.dataset}/processed/test-names.txt"
+                f"data/{args.dataset}/processed/my-test-names.txt"
             )
         if args.in_dir is None:
             args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/notes/")
@@ -282,7 +283,7 @@ def main():
     sos = encoding["type_code_map"]["start-of-song"]
     eos = encoding["type_code_map"]["end-of-song"]
     beat_0 = encoding["beat_code_map"][0]
-    beat_4 = encoding["beat_code_map"][4]
+    # beat_4 = encoding["beat_code_map"][4]
     beat_16 = encoding["beat_code_map"][16]
 
     # Iterate over the dataset
@@ -350,33 +351,33 @@ def main():
                 encoding,
             )
 
-            # -------------------
-            # 4-beat continuation
-            # -------------------
+            # # -------------------
+            # # 4-beat continuation
+            # # -------------------
 
-            # Get output start tokens
-            cond_len = int(np.argmax(batch["seq"][0, :, 1] >= beat_4))
-            tgt_start = batch["seq"][:1, :cond_len].to(device)
+            # # Get output start tokens
+            # cond_len = int(np.argmax(batch["seq"][0, :, 1] >= beat_4))
+            # tgt_start = batch["seq"][:1, :cond_len].to(device)
 
-            # Generate new samples
-            generated = model.generate(
-                tgt_start,
-                args.seq_len,
-                eos_token=eos,
-                temperature=args.temperature,
-                filter_logits_fn=args.filter,
-                filter_thres=args.filter_threshold,
-                monotonicity_dim=("type", "beat"),
-            )
-            generated_np = torch.cat((tgt_start, generated), 1).cpu().numpy()
+            # # Generate new samples
+            # generated = model.generate(
+            #     tgt_start,
+            #     args.seq_len,
+            #     eos_token=eos,
+            #     temperature=args.temperature,
+            #     filter_logits_fn=args.filter,
+            #     filter_thres=args.filter_threshold,
+            #     monotonicity_dim=("type", "beat"),
+            # )
+            # generated_np = torch.cat((tgt_start, generated), 1).cpu().numpy()
 
-            # Save the results
-            save_result(
-                f"{i}_4-beat-continuation",
-                generated_np[0],
-                sample_dir,
-                encoding,
-            )
+            # # Save the results
+            # save_result(
+            #     f"{i}_4-beat-continuation",
+            #     generated_np[0],
+            #     sample_dir,
+            #     encoding,
+            # )
 
             # --------------------
             # 16-beat continuation

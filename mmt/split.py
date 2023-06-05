@@ -27,14 +27,14 @@ def parse_args(args=None, namespace=None):
     parser.add_argument(
         "-v",
         "--ratio_valid",
-        default=0.1,
+        default=0.05,
         type=float,
         help="ratio of validation files",
     )
     parser.add_argument(
         "-t",
         "--ratio_test",
-        default=0.1,
+        default=0.05,
         type=float,
         help="ratio of test files",
     )

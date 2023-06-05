@@ -1,4 +1,4 @@
-name: mtmt
+name: mmt-env
 channels:
   - conda-forge
   - pytorch
