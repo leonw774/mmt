@@ -368,9 +368,9 @@ def encode(music, encoding, indexer):
 
     assert music.resolution == encoding['resolution']
 
-    assert all([ts.numerator == 4 and ts.denominator == 4 for ts in music.time_signatures])
-
     assert len(music.tracks) <= MAX_TRACK_NUM
+
+    assert all([ts.numerator == 4 and ts.denominator == 4 for ts in music.time_signatures])
 
     sot_code = indexer['start-of-track']
     eot_code = indexer['end-of-track']
@@ -394,7 +394,7 @@ def encode(music, encoding, indexer):
                 note_event_list.append((note.time, f'note-on_{note.pitch}'))
                 note_event_list.append((note.time+note.duration, f'note-off_{note.pitch}'))
         # note_event_list = sorted(set(note_event_list))
-        note_event_list = sorted(note_event_list)
+        note_event_list.sort()
 
         next_bar_start_time = bar_length
         note_cursor = 0
