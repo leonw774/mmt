@@ -491,7 +491,10 @@ def reconstruct(notes, resolution):
     # Append the tracks
     programs = sorted(set(note[-1] for note in notes))
     for program in programs:
-        music.tracks.append(muspy.Track(program))
+        if program == 128:
+            music.tracks.append(muspy.Track(is_drum=True))
+        else:
+            music.tracks.append(muspy.Track(program))
 
     # Append the notes
     for onset, pitch, duration, program in notes:

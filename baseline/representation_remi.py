@@ -490,7 +490,7 @@ def encode(music, encoding, indexer):
 
     codes = ['start-of-song']
     cur_bar_start_time = 0
-    for i, event in enumerate(all_event_list):
+    for event in all_event_list:
         order = event[1]
         if order == BAR_ORDER:
             codes.append(f'bar_{event[2]}')
@@ -566,26 +566,28 @@ def decode_notes(data, encoding, vocabulary):
                 or duration is None
             ):
                 continue
-            notes.append((beat, position, pitch, duration, program, velocity))
+            notes.append((onset, program, pitch, velocity, duration))
         else:
             raise ValueError(f"Unknown event type for: {event}")
 
     return notes
 
 
-def reconstruct(notes, resolution):
+def reconstruct(notes, tempos, time_signatures, resolution):
     """Reconstruct a note sequence to a MusPy Music object."""
     # Construct the MusPy Music object
     music = muspy.Music(resolution=resolution, tempos=[muspy.Tempo(0, 100)])
 
     # Append the tracks
-    programs = sorted(set(note[-2] for note in notes))
+    programs = sorted(set(note[1] for note in notes))
     for program in programs:
-        music.tracks.append(muspy.Track(program))
+        if program == 128:
+            music.tracks.append(muspy.Track(is_drum=True))
+        else:
+            music.tracks.append(muspy.Track(program))
 
     # Append the notes
-    for beat, position, pitch, duration, program, velocity in notes:
-        time = beat * resolution + position
+    for onset, pitch, duration, program, velocity in notes:
         track_idx = programs.index(program)
         music[track_idx].notes.append(muspy.Note(time, pitch, duration, velocity))
 
@@ -604,10 +606,10 @@ def decode(codes, encoding, vocabulary):
     resolution = encoding["resolution"]
 
     # Decode codes into a note sequence
-    notes = decode_notes(codes, encoding, vocabulary)
+    notes, tempos, time_signatures = decode_notes(codes, encoding, vocabulary)
 
     # Reconstruct the music object
-    music = reconstruct(notes, resolution)
+    music = reconstruct(notes, tempos, time_signatures, resolution)
 
     return music
 

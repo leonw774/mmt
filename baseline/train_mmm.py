@@ -73,7 +73,7 @@ def parse_args(args=None, namespace=None):
         help="maximum sequence length",
     )
     parser.add_argument(
-        "--max_beat",
+        "--max_bar",
         default=None,
         type=int,
         help="maximum number of beats",
@@ -258,7 +258,7 @@ def main():
         encode_fn=representation.encode,
         representation='mmm',
         max_seq_len=args.max_seq_len,
-        max_beat=args.max_beat,
+        max_beat=args.max_bar,
         use_augmentation=args.aug,
         use_csv=args.use_csv,
     )

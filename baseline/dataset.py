@@ -1,7 +1,9 @@
 """Data loader."""
 import argparse
+from functools import partial
 import pickle
 import logging
+import multiprocessing
 import pathlib
 import pprint
 import sys
@@ -60,15 +62,15 @@ def parse_args(args=None, namespace=None):
     )
     parser.add_argument(
         "--max_seq_len",
-        default=1024,
+        default=None,
         type=int,
         help="maximum sequence length",
     )
     parser.add_argument(
-        "--max_beat",
-        default=64,
+        "--max_bar",
+        default=None,
         type=int,
-        help="maximum number of beats",
+        help="maximum number of bars",
     )
     # Others
     parser.add_argument(
@@ -81,6 +83,14 @@ def parse_args(args=None, namespace=None):
         "-q", "--quiet", action="store_true", help="show warnings only"
     )
     return parser.parse_args(args=args, namespace=namespace)
+
+
+def get_code(name, encode_fn, data_dir, encoding, indexer):
+    music = muspy.load(data_dir / 'json' / f"{name}.json")
+    try:
+        return encode_fn(music, encoding, indexer)
+    except AssertionError:
+        return None
 
 
 def pad(data, maxlen=None):
@@ -115,9 +125,10 @@ class MusicDataset(torch.utils.data.Dataset):
         encode_fn,
         representation,
         max_seq_len=None,
-        max_beat=None,
+        max_bar=None,
         use_csv=False,
         use_augmentation=False,
+        num_worker=8,
     ):
         super().__init__()
         self.data_dir = pathlib.Path(data_dir)
@@ -128,14 +139,16 @@ class MusicDataset(torch.utils.data.Dataset):
         self.encode_fn = encode_fn
         self.representation = representation
         self.max_seq_len = max_seq_len
-        self.max_beat = max_beat
+        self.max_bar = max_bar
         self.use_csv = use_csv
         self.use_augmentation = use_augmentation
         self.valid_name_indices = []
         self.caches = dict()
-        self.load_caches()
+        if max_bar is not None and max_bar != 0:
+            self.encoding['max_bar'] = max_bar
+        self.load_caches(num_worker)
 
-    def load_caches(self):
+    def load_caches(self, num_worker):
         cache_path = self.data_dir / (self.representation + ".pickle")
         if cache_path.is_file():
             print('Found pickled cache, using it.')
@@ -144,14 +157,19 @@ class MusicDataset(torch.utils.data.Dataset):
                 self.caches = obj[0]
                 self.valid_name_indices = obj[1]
         else:
-            for i, name in tqdm(enumerate(self.names), desc='Caching codes'):
-                music = muspy.load(self.data_dir / 'json' / f"{name}.json")
-                try:
-                    codes = self.encode_fn(music, self.encoding, self.indexer)
-                except AssertionError:
-                    continue
-                self.valid_name_indices.append(i)
-                self.caches[name]=codes
+            with multiprocessing.Pool(num_worker) as pool:
+                get_code_partial = partial(
+                    get_code,
+                    encode_fn=self.encode_fn,
+                    data_dir=self.data_dir,
+                    encoding=self.encoding,
+                    indexer=self.indexer
+                )
+                codes_list = list(tqdm(pool.imap(get_code_partial, self.names), desc='Caching codes'))
+                for i, codes in enumerate(codes_list):
+                    if codes is not None:
+                        self.valid_name_indices.append(i)
+                        self.caches[self.names[i]] = codes
 
     def __len__(self):
         return len(self.valid_name_indices)
@@ -228,13 +246,12 @@ def main():
         indexer=indexer,
         encode_fn=representation.encode,
         representation=args.representation,
-        # max_seq_len=args.max_seq_len,
-        max_seq_len=None,
-        # max_beat=args.max_beat,
-        max_beat=None,
+        max_seq_len=args.max_seq_len,
+        max_bar=args.max_bar,
         use_csv=args.use_csv,
         # use_augmentation=args.aug,
-        use_augmentation=False
+        use_augmentation=False,
+        num_worker=args.jobs
     )
     data_loader = torch.utils.data.DataLoader(
         dataset, args.batch_size, True, collate_fn=MusicDataset.collate
