@@ -147,11 +147,7 @@ class MusicDataset(torch.utils.data.Dataset):
             for i, name in tqdm(enumerate(self.names), desc='Caching codes'):
                 music = muspy.load(self.data_dir / 'json' / f"{name}.json")
                 try:
-                    if self.representation == 'mmm':
-                        # the "codes" here is actually track_list
-                        codes = self.encode_fn(music, self.encoding, self.indexer)
-                    else:
-                        pass
+                    codes = self.encode_fn(music, self.encoding, self.indexer)
                 except AssertionError:
                     continue
                 self.valid_name_indices.append(i)

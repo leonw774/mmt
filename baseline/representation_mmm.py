@@ -226,6 +226,7 @@ def get_encoding():
     return {
         "resolution": RESOLUTION,
         "max_bar": MAX_BAR,
+        'max_track_num': MAX_TRACK_NUM,
         "max_time_shift": MAX_TIME_SHIFT,
         "program_instrument_map": PROGRAM_INSTRUMENT_MAP,
         "instrument_program_map": INSTRUMENT_PROGRAM_MAP,
@@ -368,24 +369,28 @@ def encode(music, encoding, indexer):
 
     assert music.resolution == encoding['resolution']
 
-    assert len(music.tracks) <= MAX_TRACK_NUM
+    assert len(music.tracks) <= encoding['max_track_num']
 
-    assert all([ts.numerator == 4 and ts.denominator == 4 for ts in music.time_signatures])
+    bar_length = encoding['resolution'] * 4
+    max_onset = encoding['max_bar'] * bar_length
+    assert all([
+        ts.numerator == 4 and ts.denominator == 4
+        for ts in music.time_signatures
+        if ts.time < max_onset
+    ])
+
+    if len(music.time_signatures) != 0:
+        assert music.time_signatures.time == 0
 
     sot_code = indexer['start-of-track']
     eot_code = indexer['end-of-track']
     sob_code = indexer['start-of-bar']
     eob_code = indexer['end-of-bar']
 
-    bar_length = encoding['resolution'] * 4
-    max_onset = MAX_BAR * bar_length
-
     track_list = []
     for track in music:
-        instrument = encoding["program_instrument_map"][track.program]
-        if instrument is None:
-            continue
-
+        program = 128 if track.is_drum else track.program
+        instrument = encoding["program_instrument_map"][program]
         cur_track = [sot_code, indexer[f'instrument_{instrument}'], sob_code]
 
         note_event_list = []
