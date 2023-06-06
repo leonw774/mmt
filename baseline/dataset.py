@@ -137,7 +137,7 @@ class MusicDataset(torch.utils.data.Dataset):
 
     def load_caches(self, filename):
         if (self.data_dir / self.representation).is_file():
-            with open(self.data_dir / self.representation, 'r') as cache_file:
+            with open(self.data_dir / (self.representation + ".pickle"), 'rb') as cache_file:
                 obj = pickle.load(cache_file)
                 self.caches = obj[0]
                 self.valid_name_indices = obj[1]
