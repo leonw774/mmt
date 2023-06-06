@@ -12,7 +12,7 @@ RESOLUTION = 12
 # MAX_BEAT = 1024
 MAX_DURATION = 384
 MAX_TEMPO = 240
-MAX_BAR = 256
+MAX_BAR = 64
 
 # Duration
 KNOWN_DURATIONS = [
@@ -240,8 +240,8 @@ KNOWN_EVENTS.extend(
 )
 KNOWN_EVENTS.extend(f'tempo_{i}' for i in KNOWN_TEMPO)
 KNOWN_EVENTS.extend(f"pitch_{i}" for i in range(128))
-KNOWN_EVENTS.extend(f"duration_{i}" for i in KNOWN_DURATIONS)
 KNOWN_EVENTS.extend(f"velocity_{i}" for i in KNOWN_VELOCITIES)
+KNOWN_EVENTS.extend(f"duration_{i}" for i in KNOWN_DURATIONS)
 EVENT_CODE_MAPS = {event: i for i, event in enumerate(KNOWN_EVENTS)}
 CODE_EVENT_MAPS = utils.inverse_dict(EVENT_CODE_MAPS)
 
@@ -282,6 +282,7 @@ def get_encoding():
         "resolution": RESOLUTION,
         "max_bar": MAX_BAR,
         "max_duration": MAX_DURATION,
+        "max_tempo": MAX_TEMPO,
         "program_instrument_map": PROGRAM_INSTRUMENT_MAP,
         "instrument_program_map": INSTRUMENT_PROGRAM_MAP,
         "tempo_map": TEMPO_MAP,
@@ -375,6 +376,10 @@ def extract_notes(music, resolution):
 
 #     return np.array(codes)
 
+BAR_ORDER = 0
+TIMESIG_ORDER = 1
+TEMPO_ORDER = 2
+NOTE_ORDER = 3
 
 def encode(music, encoding, indexer):
     """Encode a MusPy music object into a sequence of codes.
@@ -392,20 +397,117 @@ def encode(music, encoding, indexer):
 
     assert music.resolution == encoding['resolution']
 
-    assert all([(ts.numerator == 4 or ts.numerator == 3) and ts.denominator == 4 for ts in music.time_signatures])
+    max_onset = encoding['resolution'] * 4 * encoding['max_bar']
+    assert all([
+        (ts.numerator == 4 or ts.numerator == 3) and ts.denominator == 4
+        for ts in music.time_signatures
+        if ts.time < max_onset
+    ])
 
-    max_onset = encoding['resolution'] * 4 * MAX_BAR
+    if len(music.time_signatures) == 0:
+        music.time_signatures.append(muspy.TimeSignature(0, 4, 4))
+    else:
+        music.time_signatures.sort()
+        assert music.time_signatures[0].time == 0
 
-    time_sig_event_list = []
+    if len(music.tempos) == 0:
+        music.tempos.sort()
+        music.tempos.append(muspy.Tempo(0, 120))
+    else:
+        assert music.tempos[0].time == 0
 
+    end_time = min(max_onset, music.get_end_time())
+
+    # Make bar & timesig events
+    bar_num = 1
+    bar_event_list = []
+    timesig_event_list = []
+    timesig_cursor = 0
+    cur_bar_start_time = 0
+    cur_bar_length = encoding['resolution'] * music.time_signatures[0].numerator
+    next_bar_start_time = cur_bar_length
+    if len(music.time_signatures) > 1:
+        next_timesig_start_time = music.time_signatures[1]
+    else:
+        next_timesig_start_time = end_time
+    while next_bar_start_time < end_time:
+        bar_event_list.append((cur_bar_start_time, BAR_ORDER, bar_num))
+        timesig_event_list.append((cur_bar_start_time, TIMESIG_ORDER, music.time_signatures[timesig_cursor].numerator))
+        cur_bar_start_time += cur_bar_length
+        bar_num += 1
+        if cur_bar_start_time == next_timesig_start_time:
+            timesig_cursor += 1
+            cur_bar_length = encoding['resolution'] * music.time_signatures[timesig_cursor].numerator
+            if len(music.time_signatures) > timesig_cursor+1:
+                next_timesig_start_time = music.time_signatures[timesig_cursor+1]
+                assert (next_timesig_start_time - cur_bar_start_time) % cur_bar_length == 0
+            else:
+                next_timesig_start_time = end_time
+        next_bar_start_time += cur_bar_length
+
+    # Make tempo events
     tempo_event_list = []
+    tempo_cursor = 0
+    bar_cursor = 0
+    if len(music.time_signatures) > 1:
+        next_tempo_start_time = music.tempo[1]
+    else:
+        next_tempo_start_time = end_time
+    while bar_cursor < len(bar_event_list) or next_tempo_start_time < end_time:
+        if bar_event_list[bar_cursor][0] < next_tempo_start_time:
+            tempo_event_list.append((bar_event_list[bar_cursor][0], TEMPO_ORDER, music.tempos[tempo_cursor].qpm))
+            bar_cursor += 1
+        else:
+            tempo_cursor += 1
+            tempo_event_list.append((music.tempos[tempo_cursor].time, TEMPO_ORDER, music.tempos[tempo_cursor].qpm))
+            if len(music.tempos) > tempo_cursor+1:
+                next_tempo_start_time = music.tempo[tempo_cursor+1]
+            else:
+                next_tempo_start_time = end_time
 
+    # Make note events
     note_event_list = []
     for track in music:
         for note in track:
+            program = 128 if track.is_drum else track.program
             if note.time < max_onset:
-                note_event_list.append((note.time, f'note-on_{note.pitch}'))
-                note_event_list.append((note.time+note.duration, f'note-off_{note.pitch}'))
+                note_event_list.append((note.time, NOTE_ORDER, program, note.pitch, note.velocity, note.duration))
+
+    all_event_list = bar_event_list + timesig_event_list + tempo_event_list + note_event_list
+    all_event_list.sort()
+
+    max_tempo = encoding['max_tempo']
+    tempo_map = encoding['tempo_map']
+    program_instrument_map = encoding['program_instrument_map']
+    velocity_map = encoding['velocity_map']
+    max_duration = encoding['max_duration']
+    duration_map = encoding['duration_map']
+
+    codes = ['start-of-song']
+    cur_bar_start_time = 0
+    for event in all_event_list:
+        order = event[1]
+        if order == BAR_ORDER:
+            codes.append(f'bar_{event[2]}')
+            cur_bar_start_time = event[0]
+        elif order == TIMESIG_ORDER:
+            codes.append(f'time-signature_{event[2]}')
+        elif order == TEMPO_ORDER:
+            codes.append(f'position_{event[0]-cur_bar_start_time}')
+            qpm = tempo_map[min(max_tempo, round(event[2]))]
+            codes.append(f'tempo_{qpm}')
+        elif order == NOTE_ORDER:
+            codes.append(f'position_{event[0]-cur_bar_start_time}')
+            instrument = program_instrument_map[event[2]]
+            velocity = velocity_map[event[4]]
+            duration = min(max_duration, duration_map[event[5]])
+            codes.append(f'instrument_{instrument}')
+            codes.append(f'pitch_{event[3]}')
+            codes.append(f'velocity_{velocity}')
+            codes.append(f'duration_{duration}')
+
+    codes.append('end-of-song')
+    codes = np.array(list(map(indexer.__getitem__, codes)), dtype=np.int32)
 
     return codes
 

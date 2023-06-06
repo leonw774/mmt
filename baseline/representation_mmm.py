@@ -380,7 +380,7 @@ def encode(music, encoding, indexer):
     ])
 
     if len(music.time_signatures) != 0:
-        assert music.time_signatures.time == 0
+        assert music.time_signatures[0].time == 0
 
     sot_code = indexer['start-of-track']
     eot_code = indexer['end-of-track']
