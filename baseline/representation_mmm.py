@@ -167,7 +167,10 @@ INSTRUMENT_PROGRAM_MAP = {
     instrument: program
     for program, instrument in enumerate(PROGRAM_INSTRUMENT_MAP)
 }
-
+PROGRAM_INSTRUMENT_MAP = {
+    program: instrument
+    for program, instrument in enumerate(PROGRAM_INSTRUMENT_MAP)
+}
 KNOWN_PROGRAMS = list(
     k for k, v in INSTRUMENT_PROGRAM_MAP.items() if v is not None
 )

@@ -213,6 +213,10 @@ INSTRUMENT_PROGRAM_MAP = {
     instrument: program
     for program, instrument in enumerate(PROGRAM_INSTRUMENT_MAP)
 }
+PROGRAM_INSTRUMENT_MAP = {
+    program: instrument
+    for program, instrument in enumerate(PROGRAM_INSTRUMENT_MAP)
+}
 KNOWN_PROGRAMS = list(
     k for k, v in INSTRUMENT_PROGRAM_MAP.items() if v is not None
 )
@@ -223,7 +227,7 @@ def quatize_tempo(qpm):
 
 KNOWN_TEMPO = [7.5*(i+1) for i in range(32)]
 
-TEMPO_MAP = { 
+TEMPO_MAP = {
     i: max(7.5, min(MAX_TEMPO, round(i / 7.5) * 7.5))
     for i in range(1, MAX_TEMPO + 1)
 }
@@ -232,7 +236,7 @@ KNOWN_EVENTS = [
     "start-of-song",
     "end-of-song",
 ]
-KNOWN_EVENTS.extend(f"bar_{i}" for i in range(MAX_BAR))
+KNOWN_EVENTS.extend(f"bar_{i}" for i in range(1,MAX_BAR+1))
 KNOWN_EVENTS.extend(f"time-signature_{i}" for i in (3, 4))
 KNOWN_EVENTS.extend(f"position_{i}" for i in range(4*RESOLUTION))
 KNOWN_EVENTS.extend(
@@ -296,7 +300,7 @@ def get_encoding():
 def load_encoding(filename):
     """Load encoding configurations from a JSON file."""
     encoding = utils.load_json(filename)
-    for key in ("program_instrument_map", "code_event_map", "duration_map", "velocity_map"):
+    for key in ("program_instrument_map", "code_event_map", "duration_map", "velocity_map", "tempo_map"):
         encoding[key] = {
             int(k) if k != "null" else None: v
             for k, v in encoding[key].items()
@@ -395,9 +399,10 @@ def encode(music, encoding, indexer):
     # # Encode the notes
     # codes = encode_notes(notes, encoding, indexer)
 
-    assert music.resolution == encoding['resolution']
+    resolution = encoding['resolution']
+    assert music.resolution == resolution
 
-    max_onset = encoding['resolution'] * 4 * encoding['max_bar']
+    max_onset = resolution * 4 * encoding['max_bar']
     assert all([
         (ts.numerator == 4 or ts.numerator == 3) and ts.denominator == 4
         for ts in music.time_signatures
@@ -424,25 +429,25 @@ def encode(music, encoding, indexer):
     timesig_event_list = []
     timesig_cursor = 0
     cur_bar_start_time = 0
-    cur_bar_length = encoding['resolution'] * music.time_signatures[0].numerator
+    cur_bar_length = resolution * music.time_signatures[0].numerator
     next_bar_start_time = cur_bar_length
     if len(music.time_signatures) > 1:
         next_timesig_start_time = music.time_signatures[1]
     else:
-        next_timesig_start_time = end_time
-    while next_bar_start_time < end_time:
+        next_timesig_start_time = end_time + cur_bar_length # never reach
+    while cur_bar_start_time < end_time:
         bar_event_list.append((cur_bar_start_time, BAR_ORDER, bar_num))
         timesig_event_list.append((cur_bar_start_time, TIMESIG_ORDER, music.time_signatures[timesig_cursor].numerator))
         cur_bar_start_time += cur_bar_length
         bar_num += 1
         if cur_bar_start_time == next_timesig_start_time:
             timesig_cursor += 1
-            cur_bar_length = encoding['resolution'] * music.time_signatures[timesig_cursor].numerator
+            cur_bar_length = resolution * music.time_signatures[timesig_cursor].numerator
             if len(music.time_signatures) > timesig_cursor+1:
                 next_timesig_start_time = music.time_signatures[timesig_cursor+1]
                 assert (next_timesig_start_time - cur_bar_start_time) % cur_bar_length == 0
             else:
-                next_timesig_start_time = end_time
+                next_timesig_start_time = end_time + cur_bar_length # never reach
         next_bar_start_time += cur_bar_length
 
     # Make tempo events
@@ -452,7 +457,7 @@ def encode(music, encoding, indexer):
     if len(music.time_signatures) > 1:
         next_tempo_start_time = music.tempo[1]
     else:
-        next_tempo_start_time = end_time
+        next_tempo_start_time = end_time + 1
     while bar_cursor < len(bar_event_list) or next_tempo_start_time < end_time:
         if bar_event_list[bar_cursor][0] < next_tempo_start_time:
             tempo_event_list.append((bar_event_list[bar_cursor][0], TEMPO_ORDER, music.tempos[tempo_cursor].qpm))
@@ -463,14 +468,14 @@ def encode(music, encoding, indexer):
             if len(music.tempos) > tempo_cursor+1:
                 next_tempo_start_time = music.tempo[tempo_cursor+1]
             else:
-                next_tempo_start_time = end_time
+                next_tempo_start_time = end_time + 1
 
     # Make note events
     note_event_list = []
     for track in music:
         for note in track:
             program = 128 if track.is_drum else track.program
-            if note.time < max_onset:
+            if note.time < end_time:
                 note_event_list.append((note.time, NOTE_ORDER, program, note.pitch, note.velocity, note.duration))
 
     all_event_list = bar_event_list + timesig_event_list + tempo_event_list + note_event_list
@@ -485,7 +490,7 @@ def encode(music, encoding, indexer):
 
     codes = ['start-of-song']
     cur_bar_start_time = 0
-    for event in all_event_list:
+    for i, event in enumerate(all_event_list):
         order = event[1]
         if order == BAR_ORDER:
             codes.append(f'bar_{event[2]}')
@@ -497,6 +502,7 @@ def encode(music, encoding, indexer):
             qpm = tempo_map[min(max_tempo, round(event[2]))]
             codes.append(f'tempo_{qpm}')
         elif order == NOTE_ORDER:
+            # assert event[0]-cur_bar_start_time < end_time
             codes.append(f'position_{event[0]-cur_bar_start_time}')
             instrument = program_instrument_map[event[2]]
             velocity = velocity_map[event[4]]
@@ -505,10 +511,8 @@ def encode(music, encoding, indexer):
             codes.append(f'pitch_{event[3]}')
             codes.append(f'velocity_{velocity}')
             codes.append(f'duration_{duration}')
-
     codes.append('end-of-song')
     codes = np.array(list(map(indexer.__getitem__, codes)), dtype=np.int32)
-
     return codes
 
 
@@ -691,8 +695,9 @@ def main():
     # Print the variables
     print(f"{' Variables ':=^40}")
     print(f"resolution: {encoding['resolution']}")
-    print(f"max_beat: {encoding['max_beat']}")
+    print(f"max_bar: {encoding['max_bar']}")
     print(f"max_duration: {encoding['max_duration']}")
+    print(f"max_tempo: {encoding['max_tempo']}")
 
     # Load the example
     music = muspy.load(pathlib.Path(__file__).parent / "example.json")
