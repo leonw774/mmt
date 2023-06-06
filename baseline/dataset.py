@@ -3,6 +3,7 @@ import argparse
 import logging
 import pathlib
 import pprint
+import random
 import sys
 
 import numpy as np
@@ -104,7 +105,6 @@ def get_mask(data):
         mask[i, : len(seq)] = 1
     return mask
 
-
 class MusicDataset(torch.utils.data.Dataset):
     def __init__(
         self,
@@ -131,84 +131,37 @@ class MusicDataset(torch.utils.data.Dataset):
         self.max_beat = max_beat
         self.use_csv = use_csv
         self.use_augmentation = use_augmentation
-        self.has_remi_format = set()
+        self.valid_name_indices = []
+        self.track_lists = []
+        self.check_validacity()
+
+    def check_validacity(self):
+        for i, name in tqdm(enumerate(self.names), desc='Caching codes'):
+            music = muspy.load(self.data_dir / f"{name}.json")
+            try:
+                track_list = self.encode_fn(music, self.encoding, self.indexer)
+            except AssertionError:
+                continue
+            self.valid_name_indices.append(i)
+            self.track_lists.append(track_list)
+        return
 
     def __len__(self):
-        return len(self.names)
+        return len(self.valid_name_indices)
 
     def __getitem__(self, idx):
         # Get the name
-        name = self.names[idx]
+        name = self.names[self.valid_name_indices[idx]]
+        track_list = self.track_lists[self.valid_name_indices[idx]]
 
-        # Load data
-        if self.representation == 'remi':
-            name_remi = name + '_remi'
-            if name_remi in self.has_remi_format:
-                if self.use_csv:
-                    notes = utils.load_csv(self.data_dir / f"{name_remi}.csv")
-                else:
-                    notes = np.load(self.data_dir / f"{name_remi}.npy")
-            else:
-                music = muspy.load(self.data_dir / f"{name}.json")
-                notes = representation_remi.extract_notes(music, representation_remi.RESOLUTION)
-                # Filter out bad files
-                if len(notes) < 50:
-                    return
-
-                # Set start beat to zero
-                notes[:, 0] = notes[:, 0] - notes[0, 0]
-                # Save the notes as a CSV file
-                representation_remi.save_csv_notes((self.data_dir / name_remi).with_suffix(".csv"), notes)
-
-                # Save the notes as a NPY file
-                np.save((self.data_dir / name_remi).with_suffix(".npy"), notes)
-
-                self.has_remi_format.add(name)
-
+        if self.representation == 'mmm':
+            seq = representation_mmm.track_list_to_code(track_list, self.indexer)
         else:
-            if self.use_csv:
-                notes = utils.load_csv(self.data_dir / f"{name}.csv")
-            else:
-                notes = np.load(self.data_dir / f"{name}.npy")
-
-        # Check the shape of the loaded notes
-        assert notes.shape[1] == 5
-
-        # Data augmentation
-        if self.use_augmentation:
-            # Shift all the pitches for k semitones (k~Uniform(-5, 6))
-            pitch_shift = np.random.randint(-5, 7)
-            notes[:, 2] = np.clip(notes[:, 2] + pitch_shift, 0, 127)
-
-            # Randomly select a starting beat
-            n_beats = notes[-1, 0] + 1
-            if self.max_beat is not None and n_beats > self.max_beat:
-                trial = 0
-                # Avoid section with too few notes
-                while trial < 10:
-                    start_beat = np.random.randint(n_beats - self.max_beat)
-                    end_beat = start_beat + self.max_beat
-                    sliced_notes = notes[
-                        (notes[:, 0] >= start_beat) & (notes[:, 0] < end_beat)
-                    ]
-                    if len(sliced_notes) > 10:
-                        break
-                    trial += 1
-                sliced_notes[:, 0] = sliced_notes[:, 0] - start_beat
-                notes = sliced_notes
-
-        # Trim sequence to max_beat
-        elif self.max_beat is not None:
-            n_beats = notes[-1, 0] + 1
-            if n_beats > self.max_beat:
-                notes = notes[notes[:, 0] < self.max_beat]
-
-        # Encode the notes
-        seq = self.encode_fn(notes, self.encoding, self.indexer)
+            pass
 
         # Trim sequence to max_seq_len
         if self.max_seq_len is not None and len(seq) > self.max_seq_len:
-            seq = np.concatenate((seq[: self.max_seq_len - 2], seq[-2:]))
+            seq = np.concatenate((seq[: self.max_seq_len - 1], seq[-1:]))
 
         return {"name": name, "seq": seq}
 
@@ -235,7 +188,7 @@ def main():
                 f"data/{args.dataset}/processed/names.txt"
             )
         if args.in_dir is None:
-            args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/notes")
+            args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/json")
     if args.jobs is None:
         args.jobs = min(args.batch_size, 8)
     if args.representation == "mmm":
@@ -265,7 +218,7 @@ def main():
         args.in_dir,
         encoding=encoding,
         indexer=indexer,
-        encode_fn=representation.encode_notes,
+        encode_fn=representation.encode,
         representation=args.representation,
         # max_seq_len=args.max_seq_len,
         max_seq_len=None,

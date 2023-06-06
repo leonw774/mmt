@@ -9,8 +9,9 @@ import utils
 
 # Configuration
 RESOLUTION = 12
-MAX_BEAT = 1024
+# MAX_BEAT = 1024
 MAX_DURATION = 384
+MAX_BAR = 256
 
 # Duration
 KNOWN_DURATIONS = [
@@ -59,233 +60,157 @@ VELOCITY_MAP = {
     for i in range(1,128)
 }
 
-# Instrument
-PROGRAM_INSTRUMENT_MAP = {
+## Instrument
+PROGRAM_INSTRUMENT_MAP = [
     # Pianos
-    0: "piano",
-    1: "piano",
-    2: "piano",
-    3: "piano",
-    4: "electric-piano",
-    5: "electric-piano",
-    6: "harpsichord",
-    7: "clavinet",
+    "grand-piano",
+    "bright-piano",
+    "electric-grand-piano",
+    "honky-tony-piano",
+    "electric-piano-1",
+    "electric-piano-2",
+    "harpsichord",
+    "clavinet",
     # Chromatic Percussion
-    8: "celesta",
-    9: "glockenspiel",
-    10: "music-box",
-    11: "vibraphone",
-    12: "marimba",
-    13: "xylophone",
-    14: "tubular-bells",
-    15: "dulcimer",
+    "celesta",
+    "glockenspiel",
+    "music-box",
+    "vibraphone",
+    "marimba",
+    "xylophone",
+    "tubular-bells",
+    "dulcimer",
     # Organs
-    16: "organ",
-    17: "organ",
-    18: "organ",
-    19: "church-organ",
-    20: "organ",
-    21: "accordion",
-    22: "harmonica",
-    23: "bandoneon",
+    "dwawbar-organ",
+    "percussive-organ",
+    "rock-organ",
+    "church-organ",
+    "reed-organ",
+    "accordion",
+    "harmonica",
+    "bandoneon",
     # Guitars
-    24: "nylon-string-guitar",
-    25: "steel-string-guitar",
-    26: "electric-guitar",
-    27: "electric-guitar",
-    28: "electric-guitar",
-    29: "electric-guitar",
-    30: "electric-guitar",
-    31: "electric-guitar",
+    "nylon-string-guitar",
+    "steel-string-guitar",
+    "jazz-electric-guitar",
+    "clean-electric-guitar",
+    "muted-electric-guitar",
+    "overdriven-electric-guitar",
+    "distort-electric-guitar",
+    "guitar-harmonic",
     # Basses
-    32: "bass",
-    33: "electric-bass",
-    34: "electric-bass",
-    35: "electric-bass",
-    36: "slap-bass",
-    37: "slap-bass",
-    38: "synth-bass",
-    39: "synth-bass",
+    "bass",
+    "finger-electric-bass",
+    "pick-electric-bass",
+    "fretless-electric-bass",
+    "slap-bass-1",
+    "slap-bass-2",
+    "synth-bass-1",
+    "synth-bass-2",
     # Strings
-    40: "violin",
-    41: "viola",
-    42: "cello",
-    43: "contrabass",
-    44: "strings",
-    45: "strings",
-    46: "harp",
-    47: "timpani",
+    "violin",
+    "viola",
+    "cello",
+    "contrabass",
+    "tremelo-strings",
+    "pizzicato-strings",
+    "harp",
+    "timpani",
     # Ensemble
-    48: "strings",
-    49: "strings",
-    50: "synth-strings",
-    51: "synth-strings",
-    52: "voices",
-    53: "voices",
-    54: "voices",
-    55: "orchestra-hit",
+    "strings",
+    "strings",
+    "synth-strings-1",
+    "synth-strings-2",
+    "voices-aah",
+    "voices-ooh",
+    "synth-voice",
+    "orchestra-hit",
     # Brass
-    56: "trumpet",
-    57: "trombone",
-    58: "tuba",
-    59: "trumpet",
-    60: "horn",
-    61: "brasses",
-    62: "synth-brasses",
-    63: "synth-brasses",
+    "trumpet",
+    "trombone",
+    "tuba",
+    "muted-trumpet",
+    "horn",
+    "brasses",
+    "synth-brasses-1",
+    "synth-brasses-2",
     # Reed
-    64: "soprano-saxophone",
-    65: "alto-saxophone",
-    66: "tenor-saxophone",
-    67: "baritone-saxophone",
-    68: "oboe",
-    69: "english-horn",
-    70: "bassoon",
-    71: "clarinet",
+    "soprano-saxophone",
+    "alto-saxophone",
+    "tenor-saxophone",
+    "baritone-saxophone",
+    "oboe",
+    "english-horn",
+    "bassoon",
+    "clarinet",
     # Pipe
-    72: "piccolo",
-    73: "flute",
-    74: "recorder",
-    75: "pan-flute",
-    76: None,
-    77: None,
-    78: None,
-    79: "ocarina",
+    "piccolo",
+    "flute",
+    "recorder",
+    "pan-flute",
+    "blown-bottle",
+    "Shakuhachi",
+    "Whistle",
+    "ocarina",
     # Synth Lead
-    80: "lead",
-    81: "lead",
-    82: "lead",
-    83: "lead",
-    84: "lead",
-    85: "lead",
-    86: "lead",
-    87: "lead",
+    "lead-square",
+    "lead-sawtooth",
+    "lead-calliope",
+    "lead-chiff",
+    "lead-charang",
+    "lead-voice",
+    "lead-fifths",
+    "lead-bass+lead",
     # Synth Pad
-    88: "pad",
-    89: "pad",
-    90: "pad",
-    91: "pad",
-    92: "pad",
-    93: "pad",
-    94: "pad",
-    95: "pad",
+    "pad-new-age",
+    "pad-warm",
+    "pad-polysynth",
+    "pad-choir",
+    "pad-bowed",
+    "pad-metallic",
+    "pad-halo",
+    "pad-sweep",
     # Synth Effects
-    96: None,
-    97: None,
-    98: None,
-    99: None,
-    100: None,
-    101: None,
-    102: None,
-    103: None,
+    "fx-rain",
+    "fx-soundtrack",
+    "fx-crystal",
+    "fx-atmosphere",
+    "fx-brightness",
+    "fx-goblins",
+    "fx-echoes",
+    "fx-scifi",
     # Ethnic
-    104: "sitar",
-    105: "banjo",
-    106: "shamisen",
-    107: "koto",
-    108: "kalimba",
-    109: "bag-pipe",
-    110: "violin",
-    111: "shehnai",
+    "sitar",
+    "banjo",
+    "shamisen",
+    "koto",
+    "kalimba",
+    "bag-pipe",
+    "violin",
+    "shehnai",
     # Percussive
-    112: None,
-    113: None,
-    114: None,
-    115: None,
-    116: None,
-    117: "melodic-tom",
-    118: "synth-drums",
-    119: "synth-drums",
-    120: None,
+    "tinkle-bell",
+    "agogo",
+    "steel-drum",
+    "woodblock",
+    "taiko",
+    "melodic-tom",
+    "synth-drums",
+    "reverse-cymbal",
+    "guitar-fret-noise",
     # Sound effects
-    121: None,
-    122: None,
-    123: None,
-    124: None,
-    125: None,
-    126: None,
-    127: None,
-    128: None,
-}
+    "breath-noise",
+    "seashore",
+    "bird-tweet",
+    "telephone-rang",
+    "helicopter",
+    "applause",
+    "gunshot",
+    "drumset",
+]
 INSTRUMENT_PROGRAM_MAP = {
-    # Pianos
-    "piano": 0,
-    "electric-piano": 4,
-    "harpsichord": 6,
-    "clavinet": 7,
-    # Chromatic Percussion
-    "celesta": 8,
-    "glockenspiel": 9,
-    "music-box": 10,
-    "vibraphone": 11,
-    "marimba": 12,
-    "xylophone": 13,
-    "tubular-bells": 14,
-    "dulcimer": 15,
-    # Organs
-    "organ": 16,
-    "church-organ": 19,
-    "accordion": 21,
-    "harmonica": 22,
-    "bandoneon": 23,
-    # Guitars
-    "nylon-string-guitar": 24,
-    "steel-string-guitar": 25,
-    "electric-guitar": 26,
-    # Basses
-    "bass": 32,
-    "electric-bass": 33,
-    "slap-bass": 36,
-    "synth-bass": 38,
-    # Strings
-    "violin": 40,
-    "viola": 41,
-    "cello": 42,
-    "contrabass": 43,
-    "harp": 46,
-    "timpani": 47,
-    # Ensemble
-    "strings": 49,
-    "synth-strings": 50,
-    "voices": 52,
-    "orchestra-hit": 55,
-    # Brass
-    "trumpet": 56,
-    "trombone": 57,
-    "tuba": 58,
-    "horn": 60,
-    "brasses": 61,
-    "synth-brasses": 62,
-    # Reed
-    "soprano-saxophone": 64,
-    "alto-saxophone": 65,
-    "tenor-saxophone": 66,
-    "baritone-saxophone": 67,
-    "oboe": 68,
-    "english-horn": 69,
-    "bassoon": 70,
-    "clarinet": 71,
-    # Pipe
-    "piccolo": 72,
-    "flute": 73,
-    "recorder": 74,
-    "pan-flute": 75,
-    "ocarina": 79,
-    # Synth Lead
-    "lead": 80,
-    # Synth Pad
-    "pad": 88,
-    # Ethnic
-    "sitar": 104,
-    "banjo": 105,
-    "shamisen": 106,
-    "koto": 107,
-    "kalimba": 108,
-    "bag-pipe": 109,
-    "shehnai": 111,
-    # Percussive
-    "melodic-tom": 117,
-    "synth-drums": 118,
+    instrument: program
+    for program, instrument in enumerate(PROGRAM_INSTRUMENT_MAP)
 }
 KNOWN_PROGRAMS = list(
     k for k, v in INSTRUMENT_PROGRAM_MAP.items() if v is not None
@@ -295,11 +220,10 @@ KNOWN_INSTRUMENTS = list(dict.fromkeys(INSTRUMENT_PROGRAM_MAP.keys()))
 KNOWN_EVENTS = [
     "start-of-song",
     "end-of-song",
-    "start-of-track",
-    "end-of-track",
 ]
-KNOWN_EVENTS.extend(f"beat_{i}" for i in range(MAX_BEAT))
-KNOWN_EVENTS.extend(f"position_{i}" for i in range(RESOLUTION))
+KNOWN_EVENTS.extend(f"bar_{i}" for i in range(MAX_BAR))
+KNOWN_EVENTS.extend(f"time-signature_{i}" for i in (3, 4))
+KNOWN_EVENTS.extend(f"position_{i}" for i in range(4*RESOLUTION))
 KNOWN_EVENTS.extend(
     f"instrument_{instrument}" for instrument in KNOWN_INSTRUMENTS
 )
@@ -371,11 +295,12 @@ def extract_notes(music, resolution):
 
     Each row of the output is a note specified as follows.
 
-        (beat, position, pitch, duration, program, velocity)
+        (onset, pitch, duration, program, velocity)
 
     """
     # Check resolution
     assert music.resolution == resolution
+    assert all([(ts.numerator == 3 or ts.numerator == 4) and ts.denominator == 4 for ts in music.time_signatures])
 
     # Extract notes
     notes = []
@@ -383,7 +308,7 @@ def extract_notes(music, resolution):
         for note in track:
             beat, position = divmod(note.time, resolution)
             notes.append(
-                (beat, position, note.pitch, note.duration, track.program, note.velocity)
+                (note.time, note.pitch, note.duration, track.program, note.velocity)
             )
 
     # Deduplicate and sort the notes

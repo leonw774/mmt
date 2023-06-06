@@ -10,237 +10,164 @@ import utils
 
 # Configuration
 RESOLUTION = 12
-MAX_BEAT = 1024
+# MAX_BEAT = 1024
 MAX_TIME_SHIFT = RESOLUTION * 4
+MAX_BAR = 8
+MAX_TRACK_NUM = 12
 
 # Instrument
-PROGRAM_INSTRUMENT_MAP = {
+PROGRAM_INSTRUMENT_MAP = [
     # Pianos
-    0: "piano",
-    1: "piano",
-    2: "piano",
-    3: "piano",
-    4: "electric-piano",
-    5: "electric-piano",
-    6: "harpsichord",
-    7: "clavinet",
+    "grand-piano",
+    "bright-piano",
+    "electric-grand-piano",
+    "honky-tony-piano",
+    "electric-piano-1",
+    "electric-piano-2",
+    "harpsichord",
+    "clavinet",
     # Chromatic Percussion
-    8: "celesta",
-    9: "glockenspiel",
-    10: "music-box",
-    11: "vibraphone",
-    12: "marimba",
-    13: "xylophone",
-    14: "tubular-bells",
-    15: "dulcimer",
+    "celesta",
+    "glockenspiel",
+    "music-box",
+    "vibraphone",
+    "marimba",
+    "xylophone",
+    "tubular-bells",
+    "dulcimer",
     # Organs
-    16: "organ",
-    17: "organ",
-    18: "organ",
-    19: "church-organ",
-    20: "organ",
-    21: "accordion",
-    22: "harmonica",
-    23: "bandoneon",
+    "dwawbar-organ",
+    "percussive-organ",
+    "rock-organ",
+    "church-organ",
+    "reed-organ",
+    "accordion",
+    "harmonica",
+    "bandoneon",
     # Guitars
-    24: "nylon-string-guitar",
-    25: "steel-string-guitar",
-    26: "electric-guitar",
-    27: "electric-guitar",
-    28: "electric-guitar",
-    29: "electric-guitar",
-    30: "electric-guitar",
-    31: "electric-guitar",
+    "nylon-string-guitar",
+    "steel-string-guitar",
+    "jazz-electric-guitar",
+    "clean-electric-guitar",
+    "muted-electric-guitar",
+    "overdriven-electric-guitar",
+    "distort-electric-guitar",
+    "guitar-harmonic",
     # Basses
-    32: "bass",
-    33: "electric-bass",
-    34: "electric-bass",
-    35: "electric-bass",
-    36: "slap-bass",
-    37: "slap-bass",
-    38: "synth-bass",
-    39: "synth-bass",
+    "bass",
+    "finger-electric-bass",
+    "pick-electric-bass",
+    "fretless-electric-bass",
+    "slap-bass-1",
+    "slap-bass-2",
+    "synth-bass-1",
+    "synth-bass-2",
     # Strings
-    40: "violin",
-    41: "viola",
-    42: "cello",
-    43: "contrabass",
-    44: "strings",
-    45: "strings",
-    46: "harp",
-    47: "timpani",
+    "violin",
+    "viola",
+    "cello",
+    "contrabass",
+    "tremelo-strings",
+    "pizzicato-strings",
+    "harp",
+    "timpani",
     # Ensemble
-    48: "strings",
-    49: "strings",
-    50: "synth-strings",
-    51: "synth-strings",
-    52: "voices",
-    53: "voices",
-    54: "voices",
-    55: "orchestra-hit",
+    "strings",
+    "strings",
+    "synth-strings-1",
+    "synth-strings-2",
+    "voices-aah",
+    "voices-ooh",
+    "synth-voice",
+    "orchestra-hit",
     # Brass
-    56: "trumpet",
-    57: "trombone",
-    58: "tuba",
-    59: "trumpet",
-    60: "horn",
-    61: "brasses",
-    62: "synth-brasses",
-    63: "synth-brasses",
+    "trumpet",
+    "trombone",
+    "tuba",
+    "muted-trumpet",
+    "horn",
+    "brasses",
+    "synth-brasses-1",
+    "synth-brasses-2",
     # Reed
-    64: "soprano-saxophone",
-    65: "alto-saxophone",
-    66: "tenor-saxophone",
-    67: "baritone-saxophone",
-    68: "oboe",
-    69: "english-horn",
-    70: "bassoon",
-    71: "clarinet",
+    "soprano-saxophone",
+    "alto-saxophone",
+    "tenor-saxophone",
+    "baritone-saxophone",
+    "oboe",
+    "english-horn",
+    "bassoon",
+    "clarinet",
     # Pipe
-    72: "piccolo",
-    73: "flute",
-    74: "recorder",
-    75: "pan-flute",
-    76: None,
-    77: None,
-    78: None,
-    79: "ocarina",
+    "piccolo",
+    "flute",
+    "recorder",
+    "pan-flute",
+    "blown-bottle",
+    "Shakuhachi",
+    "Whistle",
+    "ocarina",
     # Synth Lead
-    80: "lead",
-    81: "lead",
-    82: "lead",
-    83: "lead",
-    84: "lead",
-    85: "lead",
-    86: "lead",
-    87: "lead",
+    "lead-square",
+    "lead-sawtooth",
+    "lead-calliope",
+    "lead-chiff",
+    "lead-charang",
+    "lead-voice",
+    "lead-fifths",
+    "lead-bass+lead",
     # Synth Pad
-    88: "pad",
-    89: "pad",
-    90: "pad",
-    91: "pad",
-    92: "pad",
-    93: "pad",
-    94: "pad",
-    95: "pad",
+    "pad-new-age",
+    "pad-warm",
+    "pad-polysynth",
+    "pad-choir",
+    "pad-bowed",
+    "pad-metallic",
+    "pad-halo",
+    "pad-sweep",
     # Synth Effects
-    96: None,
-    97: None,
-    98: None,
-    99: None,
-    100: None,
-    101: None,
-    102: None,
-    103: None,
+    "fx-rain",
+    "fx-soundtrack",
+    "fx-crystal",
+    "fx-atmosphere",
+    "fx-brightness",
+    "fx-goblins",
+    "fx-echoes",
+    "fx-scifi",
     # Ethnic
-    104: "sitar",
-    105: "banjo",
-    106: "shamisen",
-    107: "koto",
-    108: "kalimba",
-    109: "bag-pipe",
-    110: "violin",
-    111: "shehnai",
+    "sitar",
+    "banjo",
+    "shamisen",
+    "koto",
+    "kalimba",
+    "bag-pipe",
+    "violin",
+    "shehnai",
     # Percussive
-    112: None,
-    113: None,
-    114: None,
-    115: None,
-    116: None,
-    117: "melodic-tom",
-    118: "synth-drums",
-    119: "synth-drums",
-    120: None,
+    "tinkle-bell",
+    "agogo",
+    "steel-drum",
+    "woodblock",
+    "taiko",
+    "melodic-tom",
+    "synth-drums",
+    "reverse-cymbal",
+    "guitar-fret-noise",
     # Sound effects
-    121: None,
-    122: None,
-    123: None,
-    124: None,
-    125: None,
-    126: None,
-    127: None,
-    128: None,
-}
+    "breath-noise",
+    "seashore",
+    "bird-tweet",
+    "telephone-rang",
+    "helicopter",
+    "applause",
+    "gunshot",
+    "drumset",
+]
 INSTRUMENT_PROGRAM_MAP = {
-    # Pianos
-    "piano": 0,
-    "electric-piano": 4,
-    "harpsichord": 6,
-    "clavinet": 7,
-    # Chromatic Percussion
-    "celesta": 8,
-    "glockenspiel": 9,
-    "music-box": 10,
-    "vibraphone": 11,
-    "marimba": 12,
-    "xylophone": 13,
-    "tubular-bells": 14,
-    "dulcimer": 15,
-    # Organs
-    "organ": 16,
-    "church-organ": 19,
-    "accordion": 21,
-    "harmonica": 22,
-    "bandoneon": 23,
-    # Guitars
-    "nylon-string-guitar": 24,
-    "steel-string-guitar": 25,
-    "electric-guitar": 26,
-    # Basses
-    "bass": 32,
-    "electric-bass": 33,
-    "slap-bass": 36,
-    "synth-bass": 38,
-    # Strings
-    "violin": 40,
-    "viola": 41,
-    "cello": 42,
-    "contrabass": 43,
-    "harp": 46,
-    "timpani": 47,
-    # Ensemble
-    "strings": 49,
-    "synth-strings": 50,
-    "voices": 52,
-    "orchestra-hit": 55,
-    # Brass
-    "trumpet": 56,
-    "trombone": 57,
-    "tuba": 58,
-    "horn": 60,
-    "brasses": 61,
-    "synth-brasses": 62,
-    # Reed
-    "soprano-saxophone": 64,
-    "alto-saxophone": 65,
-    "tenor-saxophone": 66,
-    "baritone-saxophone": 67,
-    "oboe": 68,
-    "english-horn": 69,
-    "bassoon": 70,
-    "clarinet": 71,
-    # Pipe
-    "piccolo": 72,
-    "flute": 73,
-    "recorder": 74,
-    "pan-flute": 75,
-    "ocarina": 79,
-    # Synth Lead
-    "lead": 80,
-    # Synth Pad
-    "pad": 88,
-    # Ethnic
-    "sitar": 104,
-    "banjo": 105,
-    "shamisen": 106,
-    "koto": 107,
-    "kalimba": 108,
-    "bag-pipe": 109,
-    "shehnai": 111,
-    # Percussive
-    "melodic-tom": 117,
-    "synth-drums": 118,
+    instrument: program
+    for program, instrument in enumerate(PROGRAM_INSTRUMENT_MAP)
 }
+
 KNOWN_PROGRAMS = list(
     k for k, v in INSTRUMENT_PROGRAM_MAP.items() if v is not None
 )
@@ -249,6 +176,8 @@ KNOWN_INSTRUMENTS = list(dict.fromkeys(INSTRUMENT_PROGRAM_MAP.keys()))
 KNOWN_EVENTS = [
     "start-of-song",
     "end-of-song",
+    "start-of-bar",
+    "end-of-bar",
     "start-of-track",
     "end-of-track",
 ]
@@ -296,7 +225,7 @@ def get_encoding():
     """Return the encoding configurations."""
     return {
         "resolution": RESOLUTION,
-        "max_beat": MAX_BEAT,
+        "max_bar": MAX_BAR,
         "max_time_shift": MAX_TIME_SHIFT,
         "program_instrument_map": PROGRAM_INSTRUMENT_MAP,
         "instrument_program_map": INSTRUMENT_PROGRAM_MAP,
@@ -344,74 +273,83 @@ def extract_notes(music, resolution):
     return np.array(notes)
 
 
-def encode_notes(notes, encoding, indexer):
-    """Encode the notes into a sequence of code tuples.
+# def encode_notes(notes, encoding, indexer):
+#     """Encode the notes into a sequence of code tuples.
 
-    Each row of the output is encoded as follows.
+#     Each row of the output is encoded as follows.
 
-        (event_type, beat, position, pitch, duration, instrument)
+#         (event_type, beat, position, pitch, duration, instrument)
 
-    """
-    # Get variables
-    resolution = encoding["resolution"]
-    max_beat = encoding["max_beat"]
-    max_time_shift = encoding["max_time_shift"]
+#     """
+#     # Get variables
+#     resolution = encoding["resolution"]
+#     max_beat = encoding["max_beat"]
+#     max_time_shift = encoding["max_time_shift"]
 
-    # Get maps
-    program_instrument_map = encoding["program_instrument_map"]
-    instrument_program_map = encoding["instrument_program_map"]
+#     # Get maps
+#     program_instrument_map = encoding["program_instrument_map"]
+#     instrument_program_map = encoding["instrument_program_map"]
 
-    # Extract notes
-    instruments = defaultdict(list)
-    for note in notes:
-        instrument = program_instrument_map[note[-1]]
-        # Skip unknown instruments
-        if instrument is None:
-            continue
-        instruments[instrument].append(note)
+#     # Extract notes
+#     instruments = defaultdict(list)
+#     for note in notes:
+#         instrument = program_instrument_map[note[-1]]
+#         # Skip unknown instruments
+#         if instrument is None:
+#             continue
+#         instruments[instrument].append(note)
 
-    # Sort the instruments
-    instruments = dict(
-        sorted(
-            instruments.items(),
-            key=lambda x: instrument_program_map[x[0]],
-        )
-    )
+#     # Sort the instruments
+#     instruments = dict(
+#         sorted(
+#             instruments.items(),
+#             key=lambda x: instrument_program_map[x[0]],
+#         )
+#     )
 
-    # Collect events
-    events = defaultdict(list)
-    for instrument, instrument_notes in instruments.items():
-        for beat, position, pitch, duration, _ in instrument_notes:
-            if beat > max_beat:
-                continue
-            time = beat * resolution + position
-            events[instrument].append((time, f"note-on_{pitch}"))
-            events[instrument].append((time + duration, f"note-off_{pitch}"))
+#     # Collect events
+#     events = defaultdict(list)
+#     for instrument, instrument_notes in instruments.items():
+#         for beat, position, pitch, duration, _ in instrument_notes:
+#             if beat > max_beat:
+#                 continue
+#             time = beat * resolution + position
+#             events[instrument].append((time, f"note-on_{pitch}"))
+#             events[instrument].append((time + duration, f"note-off_{pitch}"))
 
-    # Deduplicate and sort the events
-    for instrument in events:
-        events[instrument] = sorted(set(events[instrument]))
+#     # Deduplicate and sort the events
+#     for instrument in events:
+#         events[instrument] = sorted(set(events[instrument]))
 
-    # Start the codes with an SOS event
-    codes = [indexer["start-of-song"]]
+#     # Start the codes with an SOS event
+#     codes = [indexer["start-of-song"]]
 
-    # Encode the instruments
-    for instrument in events:
-        codes.append(indexer["start-of-track"])
-        codes.append(indexer[f"instrument_{instrument}"])
-        time = 0
-        for event_time, event in events[instrument]:
-            while time < event_time:
-                time_shift = min(event_time - time, max_time_shift)
-                codes.append(indexer[f"time-shift_{time_shift}"])
-                time += time_shift
-            codes.append(indexer[event])
-        codes.append(indexer["end-of-track"])
+#     # Encode the instruments
+#     for instrument in events:
+#         codes.append(indexer["start-of-track"])
+#         codes.append(indexer[f"instrument_{instrument}"])
+#         time = 0
+#         for event_time, event in events[instrument]:
+#             while time < event_time:
+#                 time_shift = min(event_time - time, max_time_shift)
+#                 codes.append(indexer[f"time-shift_{time_shift}"])
+#                 time += time_shift
+#             codes.append(indexer[event])
+#         codes.append(indexer["end-of-track"])
 
-    # End the codes with an EOS event
-    codes.append(indexer["end-of-song"])
+#     # End the codes with an EOS event
+#     codes.append(indexer["end-of-song"])
 
-    return np.array(codes)
+#     return np.array(codes)
+
+
+def track_list_to_code(track_list, indexer):
+    np.random.shuffle(track_list)
+    codes = [indexer['start-of-song']]
+    for track in track_list:
+        codes.extend(track)
+    codes.append(indexer['end-of-song'])
+    return np.array(codes, dtype=np.int32)
 
 
 def encode(music, encoding, indexer):
@@ -423,22 +361,76 @@ def encode(music, encoding, indexer):
 
     """
     # Extract notes
-    notes = extract_notes(music, encoding["resolution"])
+    # notes = extract_notes(music, encoding["resolution"])
 
-    # Encode the notes
-    codes = encode_notes(notes, encoding, indexer)
+    # # Encode the notes
+    # codes = encode_notes(notes, encoding, indexer)
 
-    return codes
+    assert music.resolution == encoding['resolution']
+
+    assert all([ts.numerator == 4 and ts.denominator == 4 for ts in music.time_signatures])
+
+    assert len(music.tracks) <= MAX_TRACK_NUM
+
+    sot_code = indexer['start-of-track']
+    eot_code = indexer['end-of-track']
+    sob_code = indexer['start-of-bar']
+    eob_code = indexer['end-of-bar']
+
+    bar_length = encoding['resolution'] * 4
+    max_onset = MAX_BAR * bar_length
+
+    track_list = []
+    for track in music:
+        instrument = encoding["program_instrument_map"][track.program]
+        if instrument is None:
+            continue
+
+        cur_track = [sot_code, indexer[f'instrument_{instrument}'], sob_code]
+
+        note_event_list = []
+        for note in track:
+            if note.time < max_onset:
+                note_event_list.append((note.time, f'note-on_{note.pitch}'))
+                note_event_list.append((note.time+note.duration, f'note-off_{note.pitch}'))
+        # note_event_list = sorted(set(note_event_list))
+        note_event_list = sorted(note_event_list)
+
+        next_bar_start_time = bar_length
+        note_cursor = 0
+        prev_time = 0
+        while note_cursor < len(note_event_list):
+            note_event = note_event_list[note_cursor]
+            if note_event[0] >= next_bar_start_time:
+                cur_track.append(eob_code)
+                cur_track.append(sob_code)
+                next_bar_start_time += bar_length
+                prev_time += bar_length
+            else:
+                if note_event[0] > prev_time:
+                    # if note_event[0] - prev_time > bar_length:
+                    #     print(note_event[0], prev_time, next_bar_start_time)
+                    #     raise ValueError
+                    cur_track.append(indexer[f'time-shift_{note_event[0] - prev_time}'])
+                    prev_time = note_event[0]
+                cur_track.append(indexer[note_event[1]])
+                note_cursor += 1
+
+        cur_track.extend([eob_code, eot_code])
+        track_list.append(cur_track)
+
+    return track_list
 
 
 def decode_notes(data, encoding, vocabulary):
     """Decode codes into a note sequence."""
     # Get variables and maps
-    resolution = encoding["resolution"]
+    # resolution = encoding["resolution"]
     instrument_program_map = encoding["instrument_program_map"]
 
     # Initialize variables
     program = 0
+    bar_start_time = -encoding['resolution'] * 4
     time = 0
     note_ons = {}
 
@@ -455,6 +447,11 @@ def decode_notes(data, encoding, vocabulary):
             program = 0
             time = 0
             note_ons = {}
+        elif event == "start-of-bar":
+            bar_start_time = bar_start_time + encoding['resolution'] * 4
+            time = bar_start_time
+        elif event == "end-of-bar":
+            continue
         elif event.startswith("instrument"):
             instrument = event.split("_")[1]
             program = instrument_program_map[instrument]
@@ -468,9 +465,9 @@ def decode_notes(data, encoding, vocabulary):
             # Skip a note-off event without a corresponding note-on event
             if pitch not in note_ons:
                 continue
-            beat, position = divmod(note_ons[pitch], resolution)
+            onset = note_ons[pitch]
             notes.append(
-                (beat, position, pitch, time - note_ons[pitch], program)
+                (onset, pitch, time - note_ons[pitch], program)
             )
         else:
             raise ValueError(f"Unknown event type for: {event}")
@@ -489,10 +486,9 @@ def reconstruct(notes, resolution):
         music.tracks.append(muspy.Track(program))
 
     # Append the notes
-    for beat, position, pitch, duration, program in notes:
-        time = beat * resolution + position
+    for onset, pitch, duration, program in notes:
         track_idx = programs.index(program)
-        music[track_idx].notes.append(muspy.Note(time, pitch, duration))
+        music[track_idx].notes.append(muspy.Note(onset, pitch, duration))
 
     return music
 
@@ -524,7 +520,7 @@ def dump(data, vocabulary):
     for code in data:
         event = vocabulary[code]
         if (
-            event in ("start-of-song", "start-of-track", "end-of-track")
+            event in ("start-of-song", "start-of-track", "end-of-track", "start-of-bar", "end-of-bar")
             or event.startswith("instrument")
             or event.startswith("time-shift")
             or event.startswith("note-on")
@@ -595,7 +591,7 @@ def main():
     # Print the variables
     print(f"{' Variables ':=^40}")
     print(f"resolution: {encoding['resolution']}")
-    print(f"max_beat: {encoding['max_beat']}")
+    print(f"max_bar: {encoding['max_bar']}")
     print(f"max_time_shift: {encoding['max_time_shift']}")
 
     # Load the example
@@ -605,7 +601,8 @@ def main():
     indexer = Indexer(is_training=True)
 
     # Encode the music
-    encoded = encode(music, encoding, indexer)
+    track_list = encode(music, encoding, indexer)
+    encoded = track_list_to_code(track_list, indexer)
     print(f"Codes:\n{encoded}")
 
     # Get the learned vocabulary
