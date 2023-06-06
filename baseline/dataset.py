@@ -1,9 +1,9 @@
 """Data loader."""
 import argparse
+import pickle
 import logging
 import pathlib
 import pprint
-import random
 import sys
 
 import numpy as np
@@ -121,7 +121,7 @@ class MusicDataset(torch.utils.data.Dataset):
     ):
         super().__init__()
         self.data_dir = pathlib.Path(data_dir)
-        with open(filename) as f:
+        with open(filename, 'r') as f:
             self.names = [line.strip() for line in f if line]
         self.encoding = encoding
         self.indexer = indexer
@@ -132,19 +132,28 @@ class MusicDataset(torch.utils.data.Dataset):
         self.use_csv = use_csv
         self.use_augmentation = use_augmentation
         self.valid_name_indices = []
-        self.track_lists = []
-        self.check_validacity()
+        self.caches = dict()
+        self.load_caches(filename)
 
-    def check_validacity(self):
-        for i, name in tqdm(enumerate(self.names), desc='Caching codes'):
-            music = muspy.load(self.data_dir / f"{name}.json")
-            try:
-                track_list = self.encode_fn(music, self.encoding, self.indexer)
-            except AssertionError:
-                continue
-            self.valid_name_indices.append(i)
-            self.track_lists.append(track_list)
-        return
+    def load_caches(self, filename):
+        if (self.data_dir / self.representation).is_file():
+            with open(self.data_dir / self.representation, 'r') as cache_file:
+                obj = pickle.load(cache_file)
+                self.caches = obj[0]
+                self.valid_name_indices = obj[1]
+        else:
+            for i, name in tqdm(enumerate(self.names), desc='Caching codes'):
+                music = muspy.load(self.data_dir / 'json' / f"{name}.json")
+                try:
+                    if self.representation == 'mmm':
+                        # the "codes" here is actually track_list
+                        codes = self.encode_fn(music, self.encoding, self.indexer)
+                    else:
+                        pass
+                except AssertionError:
+                    continue
+                self.valid_name_indices.append(i)
+                self.caches[name]=codes
 
     def __len__(self):
         return len(self.valid_name_indices)
@@ -152,9 +161,10 @@ class MusicDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         # Get the name
         name = self.names[self.valid_name_indices[idx]]
-        track_list = self.track_lists[idx]
 
+        # Get the code
         if self.representation == 'mmm':
+            track_list = self.caches[idx]
             seq = representation_mmm.track_list_to_code(track_list, self.indexer)
         else:
             pass
@@ -188,7 +198,7 @@ def main():
                 f"data/{args.dataset}/processed/names.txt"
             )
         if args.in_dir is None:
-            args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/json")
+            args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/")
     if args.jobs is None:
         args.jobs = min(args.batch_size, 8)
     if args.representation == "mmm":
@@ -232,14 +242,27 @@ def main():
         dataset, args.batch_size, True, collate_fn=MusicDataset.collate
     )
 
+    # Store caches as pickle file
+    cache_path = pathlib.Path(f"data/{args.dataset}/processed/{args.representation}.pickle")
+    with open(cache_path, 'wb') as cache_file:
+        pickle.dump(
+            (dataset.caches, dataset.valid_name_indices),
+            cache_file
+        )
+
     # Iterate over the loader
     n_batches = 0
     n_samples = 0
     seq_lens = []
+    note_nums = []
     for i, batch in tqdm(enumerate(data_loader)):
         n_batches += 1
         n_samples += len(batch["name"])
         seq_lens.extend(int(l) for l in batch["seq_len"])
+        for seq in batch["seq"].numpy():
+            decoded_music = representation.decode(seq, encoding, encoding["code_event_map"])
+            note_nums.append(sum([len(track) for track in decoded_music]))
+
         if i == 0:
             logging.info("Example:")
             for key, value in batch.items():
@@ -255,15 +278,6 @@ def main():
     logging.info(f"Avg sequence length: {np.mean(seq_lens):4f}")
     logging.info(f"Min sequence length: {min(seq_lens)}")
     logging.info(f"Max sequence length: {max(seq_lens)}")
-
-    note_nums = []
-    for name in dataset.names:
-        if dataset.use_csv:
-            notes = utils.load_csv(dataset.data_dir / f"{name}.csv")
-        else:
-            notes = np.load(dataset.data_dir / f"{name}.npy")
-        note_nums.append(notes.shape[0])
-
     logging.info(f"Tot note number: {np.sum(note_nums)}")
     logging.info(f"Avg note number: {np.mean(note_nums):4f}")
 
