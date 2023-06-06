@@ -152,7 +152,7 @@ class MusicDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         # Get the name
         name = self.names[self.valid_name_indices[idx]]
-        track_list = self.track_lists[self.valid_name_indices[idx]]
+        track_list = self.track_lists[idx]
 
         if self.representation == 'mmm':
             seq = representation_mmm.track_list_to_code(track_list, self.indexer)
