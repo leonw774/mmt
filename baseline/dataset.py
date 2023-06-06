@@ -133,9 +133,9 @@ class MusicDataset(torch.utils.data.Dataset):
         self.use_augmentation = use_augmentation
         self.valid_name_indices = []
         self.caches = dict()
-        self.load_caches(filename)
+        self.load_caches()
 
-    def load_caches(self, filename):
+    def load_caches(self):
         if (self.data_dir / self.representation).is_file():
             with open(self.data_dir / (self.representation + ".pickle"), 'rb') as cache_file:
                 obj = pickle.load(cache_file)
@@ -164,7 +164,7 @@ class MusicDataset(torch.utils.data.Dataset):
 
         # Get the code
         if self.representation == 'mmm':
-            track_list = self.caches[idx]
+            track_list = self.caches[name]
             seq = representation_mmm.track_list_to_code(track_list, self.indexer)
         else:
             pass

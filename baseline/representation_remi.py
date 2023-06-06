@@ -11,6 +11,7 @@ import utils
 RESOLUTION = 12
 # MAX_BEAT = 1024
 MAX_DURATION = 384
+MAX_TEMPO = 240
 MAX_BAR = 256
 
 # Duration
@@ -53,7 +54,7 @@ DURATION_MAP = {
     for i in range(1, MAX_DURATION + 1)
 }
 
-KNOWN_VELOCITIES = {16, 32, 48, 64, 80, 96, 112}
+KNOWN_VELOCITIES = [16, 32, 48, 64, 80, 96, 112]
 
 VELOCITY_MAP = {
     i: int(max(1, min(7, round(i / 16))) * 16)
@@ -217,6 +218,16 @@ KNOWN_PROGRAMS = list(
 )
 KNOWN_INSTRUMENTS = list(dict.fromkeys(INSTRUMENT_PROGRAM_MAP.keys()))
 
+def quatize_tempo(qpm):
+    return max(7.5, min(MAX_TEMPO, round(qpm / 7.5) * 7.5))
+
+KNOWN_TEMPO = [7.5*(i+1) for i in range(32)]
+
+TEMPO_MAP = { 
+    i: max(7.5, min(MAX_TEMPO, round(i / 7.5) * 7.5))
+    for i in range(1, MAX_TEMPO + 1)
+}
+
 KNOWN_EVENTS = [
     "start-of-song",
     "end-of-song",
@@ -227,6 +238,7 @@ KNOWN_EVENTS.extend(f"position_{i}" for i in range(4*RESOLUTION))
 KNOWN_EVENTS.extend(
     f"instrument_{instrument}" for instrument in KNOWN_INSTRUMENTS
 )
+KNOWN_EVENTS.extend(f'tempo_{i}' for i in KNOWN_TEMPO)
 KNOWN_EVENTS.extend(f"pitch_{i}" for i in range(128))
 KNOWN_EVENTS.extend(f"duration_{i}" for i in KNOWN_DURATIONS)
 KNOWN_EVENTS.extend(f"velocity_{i}" for i in KNOWN_VELOCITIES)
@@ -268,10 +280,11 @@ def get_encoding():
     """Return the encoding configurations."""
     return {
         "resolution": RESOLUTION,
-        "max_beat": MAX_BEAT,
+        "max_bar": MAX_BAR,
         "max_duration": MAX_DURATION,
         "program_instrument_map": PROGRAM_INSTRUMENT_MAP,
         "instrument_program_map": INSTRUMENT_PROGRAM_MAP,
+        "tempo_map": TEMPO_MAP,
         "duration_map": DURATION_MAP,
         "velocity_map": VELOCITY_MAP,
         "event_code_map": EVENT_CODE_MAPS,
@@ -306,7 +319,6 @@ def extract_notes(music, resolution):
     notes = []
     for track in music:
         for note in track:
-            beat, position = divmod(note.time, resolution)
             notes.append(
                 (note.time, note.pitch, note.duration, track.program, note.velocity)
             )
@@ -317,51 +329,51 @@ def extract_notes(music, resolution):
     return np.array(notes)
 
 
-def encode_notes(notes, encoding, indexer):
-    """Encode the notes into a sequence of code tuples.
+# def encode_notes(notes, encoding, indexer):
+#     """Encode the notes into a sequence of code tuples.
 
-    Each row of the output is encoded as follows.
+#     Each row of the output is encoded as follows.
 
-        (event_type, beat, position, pitch, duration, instrument)
+#         (event_type, beat, position, pitch, duration, instrument)
 
-    """
-    # Get variables
-    max_beat = encoding["max_beat"]
-    max_duration = encoding["max_duration"]
+#     """
+#     # Get variables
+#     max_beat = encoding["max_beat"]
+#     max_duration = encoding["max_duration"]
 
-    # Get maps
-    duration_map = encoding["duration_map"]
-    program_instrument_map = encoding["program_instrument_map"]
-    velocity_map = encoding["velocity_map"]
+#     # Get maps
+#     duration_map = encoding["duration_map"]
+#     program_instrument_map = encoding["program_instrument_map"]
+#     velocity_map = encoding["velocity_map"]
 
-    # Start the codes with an SOS event
-    codes = [indexer["start-of-song"]]
+#     # Start the codes with an SOS event
+#     codes = [indexer["start-of-song"]]
 
-    # Encode the notes
-    last_beat = 0
-    for beat, position, pitch, duration, program, velocity in notes:
-        # Skip if max_beat has reached
-        if beat > max_beat:
-            continue
-        # Skip unknown instruments
-        instrument = program_instrument_map[program]
-        if instrument is None:
-            continue
-        if beat > last_beat:
-            codes.append(indexer[f"beat_{beat}"])
-            last_beat = beat
-        codes.append(indexer[f"position_{position}"])
-        codes.append(indexer[f"instrument_{instrument}"])
-        codes.append(indexer[f"pitch_{pitch}"])
-        codes.append(
-            indexer[f"duration_{duration_map[min(duration, max_duration)]}"]
-        )
-        codes.append(indexer[f"velocity_{velocity_map[velocity]}"])
+#     # Encode the notes
+#     last_beat = 0
+#     for beat, position, pitch, duration, program, velocity in notes:
+#         # Skip if max_beat has reached
+#         if beat > max_beat:
+#             continue
+#         # Skip unknown instruments
+#         instrument = program_instrument_map[program]
+#         if instrument is None:
+#             continue
+#         if beat > last_beat:
+#             codes.append(indexer[f"beat_{beat}"])
+#             last_beat = beat
+#         codes.append(indexer[f"position_{position}"])
+#         codes.append(indexer[f"instrument_{instrument}"])
+#         codes.append(indexer[f"pitch_{pitch}"])
+#         codes.append(
+#             indexer[f"duration_{duration_map[min(duration, max_duration)]}"]
+#         )
+#         codes.append(indexer[f"velocity_{velocity_map[velocity]}"])
 
-    # End the codes with an EOS event
-    codes.append(indexer["end-of-song"])
+#     # End the codes with an EOS event
+#     codes.append(indexer["end-of-song"])
 
-    return np.array(codes)
+#     return np.array(codes)
 
 
 def encode(music, encoding, indexer):
@@ -373,10 +385,27 @@ def encode(music, encoding, indexer):
 
     """
     # Extract notes
-    notes = extract_notes(music, encoding["resolution"])
+    # notes = extract_notes(music, encoding["resolution"])
 
-    # Encode the notes
-    codes = encode_notes(notes, encoding, indexer)
+    # # Encode the notes
+    # codes = encode_notes(notes, encoding, indexer)
+
+    assert music.resolution == encoding['resolution']
+
+    assert all([(ts.numerator == 4 or ts.numerator == 3) and ts.denominator == 4 for ts in music.time_signatures])
+
+    max_onset = encoding['resolution'] * 4 * MAX_BAR
+
+    time_sig_event_list = []
+
+    tempo_event_list = []
+
+    note_event_list = []
+    for track in music:
+        for note in track:
+            if note.time < max_onset:
+                note_event_list.append((note.time, f'note-on_{note.pitch}'))
+                note_event_list.append((note.time+note.duration, f'note-off_{note.pitch}'))
 
     return codes
 
