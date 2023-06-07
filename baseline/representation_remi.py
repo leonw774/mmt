@@ -249,7 +249,7 @@ KNOWN_EVENTS.extend(f"position_{i}" for i in range(2*MAX_NUMERATOR*RESOLUTION))
 KNOWN_EVENTS.extend(
     f"instrument_{instrument}" for instrument in KNOWN_INSTRUMENTS
 )
-KNOWN_EVENTS.extend(f'tempo_{i}' for i in KNOWN_TEMPO)
+KNOWN_EVENTS.extend(f'tempo_{i:.1f}' for i in KNOWN_TEMPO)
 KNOWN_EVENTS.extend(f"pitch_{i}" for i in range(128))
 KNOWN_EVENTS.extend(f"velocity_{i}" for i in KNOWN_VELOCITIES)
 KNOWN_EVENTS.extend(f"duration_{i}" for i in KNOWN_DURATIONS)
@@ -471,18 +471,18 @@ def encode(music, encoding, indexer):
     tempo_cursor = 0
     bar_cursor = 0
     if len(music.tempos) > 1:
-        next_tempo_start_time = music.tempos[1]
+        next_tempo_start_time = music.tempos[1].time
     else:
         next_tempo_start_time = end_time + 1
     while bar_cursor < len(bar_event_list) or next_tempo_start_time < end_time:
-        if bar_event_list[bar_cursor][0] < next_tempo_start_time:
+        if bar_cursor < len(bar_event_list) and bar_event_list[bar_cursor][0] < next_tempo_start_time:
             tempo_event_list.append((bar_event_list[bar_cursor][0], TEMPO_ORDER, music.tempos[tempo_cursor].qpm))
             bar_cursor += 1
         else:
             tempo_cursor += 1
             tempo_event_list.append((music.tempos[tempo_cursor].time, TEMPO_ORDER, music.tempos[tempo_cursor].qpm))
             if len(music.tempos) > tempo_cursor+1:
-                next_tempo_start_time = music.tempo[tempo_cursor+1]
+                next_tempo_start_time = music.tempos[tempo_cursor+1].time
             else:
                 next_tempo_start_time = end_time + 1
 
@@ -516,13 +516,13 @@ def encode(music, encoding, indexer):
         elif order == TEMPO_ORDER:
             codes.append(f'position_{event[0]-cur_bar_start_time}')
             qpm = tempo_map[min(max_tempo, round(event[2]))]
-            codes.append(f'tempo_{qpm}')
+            codes.append(f'tempo_{qpm:.1f}')
         elif order == NOTE_ORDER:
             # assert event[0]-cur_bar_start_time < end_time
             codes.append(f'position_{event[0]-cur_bar_start_time}')
             instrument = program_instrument_map[event[2]]
             velocity = velocity_map[event[4]]
-            duration = min(max_duration, duration_map[event[5]])
+            duration = duration_map[min(max_duration, event[5])]
             codes.append(f'instrument_{instrument}')
             codes.append(f'pitch_{event[3]}')
             codes.append(f'velocity_{velocity}')
