@@ -183,7 +183,7 @@ class MusicDataset(torch.utils.data.Dataset):
             track_list = self.caches[name]
             seq = representation_mmm.track_list_to_code(track_list, self.indexer)
         else:
-            pass
+            seq = self.caches[name]
 
         # Trim sequence to max_seq_len
         if self.max_seq_len is not None and len(seq) > self.max_seq_len:
