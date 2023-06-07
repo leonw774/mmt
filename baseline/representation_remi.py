@@ -4,8 +4,10 @@ import pprint
 
 import muspy
 import numpy as np
+import pretty_midi
 
 import utils
+from chord_recognition import MIDIChord
 
 # Configuration
 RESOLUTION = 12
@@ -222,8 +224,7 @@ KNOWN_PROGRAMS = list(
 )
 KNOWN_INSTRUMENTS = list(dict.fromkeys(INSTRUMENT_PROGRAM_MAP.keys()))
 
-def quatize_tempo(qpm):
-    return max(7.5, min(MAX_TEMPO, round(qpm / 7.5) * 7.5))
+KNOWN_CHORD = MIDIChord.known_chords()
 
 KNOWN_TEMPO = [7.5*(i+1) for i in range(32)]
 
@@ -249,6 +250,7 @@ KNOWN_EVENTS.extend(f"position_{i}" for i in range(2*MAX_NUMERATOR*RESOLUTION))
 KNOWN_EVENTS.extend(
     f"instrument_{instrument}" for instrument in KNOWN_INSTRUMENTS
 )
+KNOWN_EVENTS.extend([f'chord_{i}' for i in KNOWN_CHORD])
 KNOWN_EVENTS.extend(f'tempo_{i:.1f}' for i in KNOWN_TEMPO)
 KNOWN_EVENTS.extend(f"pitch_{i}" for i in range(128))
 KNOWN_EVENTS.extend(f"velocity_{i}" for i in KNOWN_VELOCITIES)
@@ -391,9 +393,10 @@ def extract_notes(music, resolution):
 BAR_ORDER = 0
 TIMESIG_ORDER = 1
 TEMPO_ORDER = 2
-NOTE_ORDER = 3
+CHORD_ORDER = 3
+NOTE_ORDER = 4
 
-def encode(music, encoding, indexer):
+def encode(music: muspy.Music, encoding, indexer):
     """Encode a MusPy music object into a sequence of codes.
 
     Each row of the input is encoded as follows.
@@ -486,6 +489,16 @@ def encode(music, encoding, indexer):
             else:
                 next_tempo_start_time = end_time + 1
 
+    # Make chord event
+    pm = muspy.to_pretty_midi(music)
+    chord_event_list = MIDIChord(pm).extract()
+    if len(chord_event_list) == 0:
+        chord_event_list.append((0, end_time, 'N:N'))
+    else:
+        chord_event_list = [
+            (round(chord[0] * resolution), CHORD_ORDER, chord[2]) for chord in chord_event_list
+        ]
+
     # Make note events
     note_event_list = []
     for track in music:
@@ -494,7 +507,7 @@ def encode(music, encoding, indexer):
             if note.time < end_time:
                 note_event_list.append((note.time, NOTE_ORDER, program, note.pitch, note.velocity, note.duration))
 
-    all_event_list = bar_event_list + timesig_event_list + tempo_event_list + note_event_list
+    all_event_list = bar_event_list + timesig_event_list + tempo_event_list + chord_event_list + note_event_list
     all_event_list.sort()
 
     max_tempo = encoding['max_tempo']
@@ -517,6 +530,9 @@ def encode(music, encoding, indexer):
             codes.append(f'position_{event[0]-cur_bar_start_time}')
             qpm = tempo_map[min(max_tempo, round(event[2]))]
             codes.append(f'tempo_{qpm:.1f}')
+        elif order == CHORD_ORDER:
+            codes.append(f'position_{event[0]-cur_bar_start_time}')
+            codes.append(f'chord_{event[2]}')
         elif order == NOTE_ORDER:
             # assert event[0]-cur_bar_start_time < end_time
             codes.append(f'position_{event[0]-cur_bar_start_time}')
@@ -528,7 +544,10 @@ def encode(music, encoding, indexer):
             codes.append(f'velocity_{velocity}')
             codes.append(f'duration_{duration}')
     codes.append('end-of-song')
-    codes = np.array(list(map(indexer.__getitem__, codes)), dtype=np.int32)
+    try:
+        codes = np.array(list(map(indexer.__getitem__, codes)), dtype=np.int32)
+    except KeyError:
+        raise AssertionError('KeyError')
     return codes
 
 
@@ -587,6 +606,8 @@ def decode_notes(data, encoding, vocabulary):
             tempo = float(event.split("_")[1])
             if len(tempos) == 0 or tempos[-1][1] != tempos:
                 tempos.append((cur_bar_start_time+position, tempo))
+        elif event.startswith("chord"):
+            continue
         elif event.startswith("instrument"):
             instrument = event.split("_")[1]
             program = instrument_program_map[instrument]
@@ -675,6 +696,7 @@ def dump(data, vocabulary):
             break
         elif (
             event.startswith("tempo")
+            or event.startswith("chord")
             or event.startswith("instrument")
             or event.startswith("pitch")
             or event.startswith("velocity")
