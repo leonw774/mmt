@@ -462,7 +462,7 @@ def encode(music, encoding, indexer):
             else:
                 next_timesig_start_time = end_time + cur_bar_length # never reach
         next_bar_start_time += cur_bar_length
-    
+
     if next_bar_start_time < end_time:
         end_time = next_bar_start_time
 
@@ -470,7 +470,7 @@ def encode(music, encoding, indexer):
     tempo_event_list = []
     tempo_cursor = 0
     bar_cursor = 0
-    if len(music.time_signatures) > 1:
+    if len(music.tempos) > 1:
         next_tempo_start_time = music.tempos[1]
     else:
         next_tempo_start_time = end_time + 1
