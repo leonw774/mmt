@@ -490,7 +490,10 @@ def encode(music: muspy.Music, encoding, indexer):
                 next_tempo_start_time = end_time + 1
 
     # Make chord event
-    pm = muspy.to_pretty_midi(music)
+    try:
+        pm = muspy.to_pretty_midi(music)
+    except:
+        raise AssertionError('muspy.to_pretty_midi(music) failed')
     chord_event_list = MIDIChord(pm).extract()
     if len(chord_event_list) == 0:
         chord_event_list.append((0, end_time, 'N:N'))
@@ -547,7 +550,7 @@ def encode(music: muspy.Music, encoding, indexer):
     try:
         codes = np.array(list(map(indexer.__getitem__, codes)), dtype=np.int32)
     except KeyError:
-        raise AssertionError('KeyError')
+        raise AssertionError('KeyError') # something is wrong but I don't care
     return codes
 
 
