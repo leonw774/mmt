@@ -232,13 +232,20 @@ TEMPO_MAP = {
     for i in range(1, MAX_TEMPO + 1)
 }
 
+MAX_NUMERATOR = 12
+KNOWN_TIME_SIGNATURE = [
+    f'{p}/{q}'
+    for q in [2, 4, 8, 16]
+    for p in range(1, MAX_NUMERATOR + 1)
+]
+
 KNOWN_EVENTS = [
     "start-of-song",
     "end-of-song",
 ]
 KNOWN_EVENTS.extend(f"bar_{i}" for i in range(1,MAX_BAR+1))
-KNOWN_EVENTS.extend(f"time-signature_{i}" for i in (3, 4))
-KNOWN_EVENTS.extend(f"position_{i}" for i in range(4*RESOLUTION))
+KNOWN_EVENTS.extend(f"time-signature_{i}" for i in KNOWN_TIME_SIGNATURE)
+KNOWN_EVENTS.extend(f"position_{i}" for i in range(2*MAX_NUMERATOR*RESOLUTION))
 KNOWN_EVENTS.extend(
     f"instrument_{instrument}" for instrument in KNOWN_INSTRUMENTS
 )
@@ -287,6 +294,7 @@ def get_encoding():
         "max_bar": MAX_BAR,
         "max_duration": MAX_DURATION,
         "max_tempo": MAX_TEMPO,
+        "time_signature_map": KNOWN_TIME_SIGNATURE,
         "program_instrument_map": PROGRAM_INSTRUMENT_MAP,
         "instrument_program_map": INSTRUMENT_PROGRAM_MAP,
         "tempo_map": TEMPO_MAP,
@@ -402,11 +410,11 @@ def encode(music, encoding, indexer):
     resolution = encoding['resolution']
     assert music.resolution == resolution
 
-    max_onset = resolution * 4 * encoding['max_bar']
+    time_signature_map = set(encoding['time_signature_map'])
+    max_bar = encoding['max_bar']
     assert all([
-        (ts.numerator == 4 or ts.numerator == 3) and ts.denominator == 4
+        f'{ts.numerator}/{ts.denominator}' in time_signature_map
         for ts in music.time_signatures
-        if ts.time < max_onset
     ])
 
     if len(music.time_signatures) == 0:
@@ -421,7 +429,7 @@ def encode(music, encoding, indexer):
     else:
         assert music.tempos[0].time == 0
 
-    end_time = min(max_onset, music.get_end_time())
+    end_time = music.get_end_time()
 
     # Make bar & timesig events
     bar_num = 1
@@ -429,33 +437,41 @@ def encode(music, encoding, indexer):
     timesig_event_list = []
     timesig_cursor = 0
     cur_bar_start_time = 0
-    cur_bar_length = resolution * music.time_signatures[0].numerator
+    cur_bar_length = 4 * music.time_signatures[0].numerator * resolution // music.time_signatures[0].denominator
     next_bar_start_time = cur_bar_length
     if len(music.time_signatures) > 1:
-        next_timesig_start_time = music.time_signatures[1]
+        next_timesig_start_time = music.time_signatures[1].time
     else:
         next_timesig_start_time = end_time + cur_bar_length # never reach
-    while cur_bar_start_time < end_time:
+    while cur_bar_start_time < end_time and bar_num < max_bar:
         bar_event_list.append((cur_bar_start_time, BAR_ORDER, bar_num))
-        timesig_event_list.append((cur_bar_start_time, TIMESIG_ORDER, music.time_signatures[timesig_cursor].numerator))
+        timesig_event_list.append(
+            (cur_bar_start_time,
+             TIMESIG_ORDER,
+             music.time_signatures[timesig_cursor].numerator,
+             music.time_signatures[timesig_cursor].denominator)
+        )
         cur_bar_start_time += cur_bar_length
         bar_num += 1
         if cur_bar_start_time == next_timesig_start_time:
             timesig_cursor += 1
-            cur_bar_length = resolution * music.time_signatures[timesig_cursor].numerator
+            cur_bar_length = 4 * music.time_signatures[timesig_cursor].numerator * resolution // music.time_signatures[timesig_cursor].denominator
             if len(music.time_signatures) > timesig_cursor+1:
-                next_timesig_start_time = music.time_signatures[timesig_cursor+1]
+                next_timesig_start_time = music.time_signatures[timesig_cursor+1].time
                 assert (next_timesig_start_time - cur_bar_start_time) % cur_bar_length == 0
             else:
                 next_timesig_start_time = end_time + cur_bar_length # never reach
         next_bar_start_time += cur_bar_length
+    
+    if next_bar_start_time < end_time:
+        end_time = next_bar_start_time
 
     # Make tempo events
     tempo_event_list = []
     tempo_cursor = 0
     bar_cursor = 0
     if len(music.time_signatures) > 1:
-        next_tempo_start_time = music.tempo[1]
+        next_tempo_start_time = music.tempos[1]
     else:
         next_tempo_start_time = end_time + 1
     while bar_cursor < len(bar_event_list) or next_tempo_start_time < end_time:
@@ -496,7 +512,7 @@ def encode(music, encoding, indexer):
             codes.append(f'bar_{event[2]}')
             cur_bar_start_time = event[0]
         elif order == TIMESIG_ORDER:
-            codes.append(f'time-signature_{event[2]}')
+            codes.append(f'time-signature_{event[2]}/{event[3]}')
         elif order == TEMPO_ORDER:
             codes.append(f'position_{event[0]-cur_bar_start_time}')
             qpm = tempo_map[min(max_tempo, round(event[2]))]
@@ -522,12 +538,17 @@ def decode_notes(data, encoding, vocabulary):
     instrument_program_map = encoding["instrument_program_map"]
 
     # Initialize variables
-    beat = 0
+    cur_bar_start_time = None
+    cur_bar_length = None
+    # bar_num = None
     position = None
     program = None
     pitch = None
     duration = None
     velocity = None
+
+    tempos = []
+    time_signatures = []
 
     # Decode the codes into a sequence of notes
     notes = []
@@ -537,46 +558,67 @@ def decode_notes(data, encoding, vocabulary):
             continue
         elif event == "end-of-song":
             break
-        elif event.startswith("beat"):
-            beat = int(event.split("_")[1])
+        elif event.startswith("bar"):
+            # bar_num = int(event.split("_")[1])
+            if cur_bar_start_time is None:
+                cur_bar_start_time = 0
+            else:
+                cur_bar_start_time += cur_bar_length
             # Reset variables
             position = None
             program = None
             pitch = None
+            velocity = None
             duration = None
+        elif event.startswith("time-signature"):
+            timesig = event.split("_")[1].split("/")
+            n, d = int(timesig[0]), int(timesig[1])
+            if len(time_signatures) == 0 or time_signatures[-1][1] != n:
+                cur_bar_length = 4 * n * encoding['resolution'] // d
+                time_signatures.append((cur_bar_start_time, n))
         elif event.startswith("position"):
             position = int(event.split("_")[1])
             # Reset variables
             program = None
             pitch = None
+            velocity = None
             duration = None
+        elif event.startswith("tempo"):
+            tempo = float(event.split("_")[1])
+            if len(tempos) == 0 or tempos[-1][1] != tempos:
+                tempos.append((cur_bar_start_time+position, tempo))
         elif event.startswith("instrument"):
             instrument = event.split("_")[1]
             program = instrument_program_map[instrument]
         elif event.startswith("pitch"):
             pitch = int(event.split("_")[1])
-        elif event.startswith("duration"):
-            duration = int(event.split("_")[1])
         elif event.startswith("velocity"):
             velocity = int(event.split("_")[1])
+        elif event.startswith("duration"):
+            duration = int(event.split("_")[1])
             if (
                 position is None
                 or program is None
                 or pitch is None
                 or duration is None
+                or velocity is None
             ):
                 continue
-            notes.append((onset, program, pitch, velocity, duration))
+            notes.append((cur_bar_start_time+position, program, pitch, velocity, duration))
         else:
             raise ValueError(f"Unknown event type for: {event}")
 
-    return notes
+    return notes, tempos, time_signatures
 
 
 def reconstruct(notes, tempos, time_signatures, resolution):
     """Reconstruct a note sequence to a MusPy Music object."""
     # Construct the MusPy Music object
-    music = muspy.Music(resolution=resolution, tempos=[muspy.Tempo(0, 100)])
+    music = muspy.Music(
+        resolution=resolution,
+        tempos=[muspy.Tempo(time, qpm) for time, qpm in tempos],
+        time_signatures=[muspy.TimeSignature(time, n, 4) for time, n in time_signatures]
+    )
 
     # Append the tracks
     programs = sorted(set(note[1] for note in notes))
@@ -587,7 +629,7 @@ def reconstruct(notes, tempos, time_signatures, resolution):
             music.tracks.append(muspy.Track(program))
 
     # Append the notes
-    for onset, pitch, duration, program, velocity in notes:
+    for time, program, pitch, velocity, duration in notes:
         track_idx = programs.index(program)
         music[track_idx].notes.append(muspy.Note(time, pitch, duration, velocity))
 
@@ -622,18 +664,21 @@ def dump(data, vocabulary):
         event = vocabulary[code]
         if (
             event == "start-of-song"
-            or event.startswith("beat")
+            or event.startswith("bar")
             or event.startswith("position")
         ):
             lines.append(event)
+        elif event.startswith("time-signature"):
+            lines[-1] = f"{lines[-1]} {event}"
         elif event == "end-of-song":
             lines.append(event)
             break
         elif (
-            event.startswith("instrument")
+            event.startswith("tempo")
+            or event.startswith("instrument")
             or event.startswith("pitch")
-            or event.startswith("duration")
             or event.startswith("velocity")
+            or event.startswith("duration")
         ):
             lines[-1] = f"{lines[-1]} {event}"
         else:
@@ -702,7 +747,7 @@ def main():
     print(f"max_tempo: {encoding['max_tempo']}")
 
     # Load the example
-    music = muspy.load(pathlib.Path(__file__).parent / "example.json")
+    music = muspy.load(pathlib.Path(__file__).parent / "example_remi.json")
 
     # Get the indexer
     indexer = Indexer(is_training=True)

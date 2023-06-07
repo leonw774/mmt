@@ -606,7 +606,7 @@ def main():
     print(f"max_time_shift: {encoding['max_time_shift']}")
 
     # Load the example
-    music = muspy.load(pathlib.Path(__file__).parent / "example.json")
+    music = muspy.load(pathlib.Path(__file__).parent / "example_mmm.json")
 
     # Get the indexer
     indexer = Indexer(is_training=True)

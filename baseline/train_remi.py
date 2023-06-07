@@ -80,9 +80,9 @@ def parse_args(args=None, namespace=None):
     )
     parser.add_argument(
         "--max_bar",
-        default=64,
+        default=None,
         type=int,
-        help="maximum number of beats",
+        help="maximum number of bars",
     )
     parser.add_argument("--dim", default=512, type=int, help="model dimension")
     parser.add_argument(

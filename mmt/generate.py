@@ -110,12 +110,12 @@ def save_result(filename, data, sample_dir, encoding):
     np.save(sample_dir / "npy" / f"{filename}.npy", data)
 
     # Save as a CSV file
-    representation.save_csv_codes(sample_dir / "csv" / f"{filename}.csv", data)
+    # representation.save_csv_codes(sample_dir / "csv" / f"{filename}.csv", data)
 
     # Save as a TXT file
-    representation.save_txt(
-        sample_dir / "txt" / f"{filename}.txt", data, encoding
-    )
+    # representation.save_txt(
+    #     sample_dir / "txt" / f"{filename}.txt", data, encoding
+    # )
 
     # Convert to a MusPy Music object
     music = representation.decode(data, encoding)
@@ -124,48 +124,48 @@ def save_result(filename, data, sample_dir, encoding):
     music.save(sample_dir / "json" / f"{filename}.json")
 
     # Save as a piano roll
-    save_pianoroll(
-        sample_dir / "png" / f"{filename}.png", music, (20, 5), preset="frame"
-    )
+    # save_pianoroll(
+    #     sample_dir / "png" / f"{filename}.png", music, (20, 5), preset="frame"
+    # )
 
     # Save as a MIDI file
     music.write(sample_dir / "mid" / f"{filename}.mid")
 
     # Save as a WAV file
-    music.write(
-        sample_dir / "wav" / f"{filename}.wav",
-        options="-o synth.polyphony=4096",
-    )
+    # music.write(
+    #     sample_dir / "wav" / f"{filename}.wav",
+    #     options="-o synth.polyphony=4096",
+    # )
 
     # Save also as a MP3 file
-    subprocess.check_output(
-        ["ffmpeg", "-loglevel", "error", "-y", "-i"]
-        + [str(sample_dir / "wav" / f"{filename}.wav")]
-        + ["-b:a", "192k"]
-        + [str(sample_dir / "mp3" / f"{filename}.mp3")]
-    )
+    # subprocess.check_output(
+    #     ["ffmpeg", "-loglevel", "error", "-y", "-i"]
+    #     + [str(sample_dir / "wav" / f"{filename}.wav")]
+    #     + ["-b:a", "192k"]
+    #     + [str(sample_dir / "mp3" / f"{filename}.mp3")]
+    # )
 
     # Trim the music
-    music.trim(music.resolution * 64)
+    # music.trim(music.resolution * 64)
 
     # Save the trimmed version as a piano roll
-    save_pianoroll(
-        sample_dir / "png-trimmed" / f"{filename}.png", music, (10, 5)
-    )
+    # save_pianoroll(
+    #     sample_dir / "png-trimmed" / f"{filename}.png", music, (10, 5)
+    # )
 
     # Save as a WAV file
-    music.write(
-        sample_dir / "wav-trimmed" / f"{filename}.wav",
-        options="-o synth.polyphony=4096",
-    )
+    # music.write(
+    #     sample_dir / "wav-trimmed" / f"{filename}.wav",
+    #     options="-o synth.polyphony=4096",
+    # )
 
     # Save also as a MP3 file
-    subprocess.check_output(
-        ["ffmpeg", "-loglevel", "error", "-y", "-i"]
-        + [str(sample_dir / "wav-trimmed" / f"{filename}.wav")]
-        + ["-b:a", "192k"]
-        + [str(sample_dir / "mp3-trimmed" / f"{filename}.mp3")]
-    )
+    # subprocess.check_output(
+    #     ["ffmpeg", "-loglevel", "error", "-y", "-i"]
+    #     + [str(sample_dir / "wav-trimmed" / f"{filename}.wav")]
+    #     + ["-b:a", "192k"]
+    #     + [str(sample_dir / "mp3-trimmed" / f"{filename}.mp3")]
+    # )
 
 
 def main():
@@ -216,16 +216,16 @@ def main():
     sample_dir = args.out_dir / "samples"
     sample_dir.mkdir(exist_ok=True)
     (sample_dir / "npy").mkdir(exist_ok=True)
-    (sample_dir / "csv").mkdir(exist_ok=True)
-    (sample_dir / "txt").mkdir(exist_ok=True)
+    # (sample_dir / "csv").mkdir(exist_ok=True)
+    # (sample_dir / "txt").mkdir(exist_ok=True)
     (sample_dir / "json").mkdir(exist_ok=True)
-    (sample_dir / "png").mkdir(exist_ok=True)
+    # (sample_dir / "png").mkdir(exist_ok=True)
     (sample_dir / "mid").mkdir(exist_ok=True)
-    (sample_dir / "wav").mkdir(exist_ok=True)
-    (sample_dir / "mp3").mkdir(exist_ok=True)
-    (sample_dir / "png-trimmed").mkdir(exist_ok=True)
-    (sample_dir / "wav-trimmed").mkdir(exist_ok=True)
-    (sample_dir / "mp3-trimmed").mkdir(exist_ok=True)
+    # (sample_dir / "wav").mkdir(exist_ok=True)
+    # (sample_dir / "mp3").mkdir(exist_ok=True)
+    # (sample_dir / "png-trimmed").mkdir(exist_ok=True)
+    # (sample_dir / "wav-trimmed").mkdir(exist_ok=True)
+    # (sample_dir / "mp3-trimmed").mkdir(exist_ok=True)
 
     # Get the specified device
     device = torch.device(
