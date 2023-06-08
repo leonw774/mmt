@@ -1,5 +1,6 @@
 import argparse
 import logging
+import math
 import pathlib
 import pprint
 import shutil
@@ -74,7 +75,7 @@ def parse_args(args=None, namespace=None):
     # Model
     parser.add_argument(
         "--max_seq_len",
-        default=256,
+        default=2048,
         type=int,
         help="maximum sequence length",
     )
@@ -153,7 +154,7 @@ def parse_args(args=None, namespace=None):
     )
     parser.add_argument(
         "--lr_decay_multiplier",
-        default=0.1,
+        default=1.0,
         type=float,
         help="learning rate multiplier at the end",
     )
@@ -188,7 +189,8 @@ def get_lr_multiplier(
 
     """
     if step < warmup_steps:
-        return (step + 1) / warmup_steps
+        # The model of REMI+ use inverse-square-root warmup
+        return math.sqrt((step + 1) / warmup_steps)
     if step > decay_end_steps:
         return decay_end_multiplier
     position = (step - warmup_steps) / (decay_end_steps - warmup_steps)
@@ -350,23 +352,26 @@ def main():
         model.train()
         recent_losses = []
 
-        for batch in (pbar := tqdm.tqdm(range(args.valid_steps), ncols=80)):
-            # Get next batch
-            try:
-                batch = next(train_iterator)
-            except StopIteration:
-                # Reinitialize dataset iterator
-                train_iterator = iter(train_loader)
-                batch = next(train_iterator)
+        for _ in (pbar := tqdm.tqdm(range(args.valid_steps), ncols=80)):
 
-            # Get input and output pair
-            seq = batch["seq"].to(device)
-            mask = batch["mask"].to(device)
+            for _ in range(args.update_freq):
+                # Get next batch
+                try:
+                    batch = next(train_iterator)
+                except StopIteration:
+                    # Reinitialize dataset iterator
+                    train_iterator = iter(train_loader)
+                    batch = next(train_iterator)
 
-            # Update the model parameters
-            optimizer.zero_grad()
-            loss = model(seq, mask=mask)
-            loss.backward()
+                # Get input and output pair
+                seq = batch["seq"].to(device)
+                mask = batch["mask"].to(device)
+
+                # Update the model parameters
+                optimizer.zero_grad()
+                loss = model(seq, mask=mask)
+                loss.backward()
+
             torch.nn.utils.clip_grad_norm_(
                 model.parameters(), args.grad_norm_clip
             )

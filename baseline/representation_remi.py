@@ -14,7 +14,7 @@ RESOLUTION = 12
 # MAX_BEAT = 1024
 MAX_DURATION = 384
 MAX_TEMPO = 240
-MAX_BAR = 64
+MAX_BAR = 256
 
 # Duration
 KNOWN_DURATIONS = [
@@ -522,9 +522,11 @@ def encode(music: muspy.Music, encoding, indexer):
 
     codes = ['start-of-song']
     cur_bar_start_time = 0
-    for event in all_event_list:
+    for i, event in enumerate(all_event_list):
         order = event[1]
         if order == BAR_ORDER:
+            if i > max_event_num:
+                break
             codes.append(f'bar_{event[2]}')
             cur_bar_start_time = event[0]
         elif order == TIMESIG_ORDER:

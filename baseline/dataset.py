@@ -147,6 +147,12 @@ class MusicDataset(torch.utils.data.Dataset):
         if max_bar is not None and max_bar != 0:
             self.encoding['max_bar'] = max_bar
         self.load_caches(num_worker)
+    
+        if self.representation == 'remi':
+            self.bar_codes = np.array(sorted({
+                self.indexer[f'bar_{i}']
+                for i in range(1, self.encoding['max_bar'] + 1)
+            }))
 
     def load_caches(self, num_worker):
         cache_path = self.data_dir / (self.representation + ".pickle")
@@ -165,11 +171,15 @@ class MusicDataset(torch.utils.data.Dataset):
                     encoding=self.encoding,
                     indexer=self.indexer
                 )
-                codes_list = list(tqdm(pool.imap(get_code_partial, self.names), desc='Caching codes'))
-                for i, codes in enumerate(codes_list):
-                    if codes is not None:
-                        self.valid_name_indices.append(i)
-                        self.caches[self.names[i]] = codes
+                try:
+                    for i, codes in tqdm(enumerate(pool.imap(get_code_partial, self.names)), desc='Caching codes'):
+                        if codes is not None:
+                            self.valid_name_indices.append(i)
+                            self.caches[self.names[i]] = codes
+                except Exception as e:
+                    print(len(self.caches))
+                    print([codes.shape[0] for codes in self.caches.values()])
+                    raise e
 
     def __len__(self):
         return len(self.valid_name_indices)
@@ -182,8 +192,18 @@ class MusicDataset(torch.utils.data.Dataset):
         if self.representation == 'mmm':
             track_list = self.caches[name]
             seq = representation_mmm.track_list_to_code(track_list, self.indexer)
-        else:
+        else: # is remi+
             seq = self.caches[name]
+            # random start from middle of piece
+            if self.max_seq_len is not None and seq.shape[0] > self.max_seq_len:
+                # find index of all bar tokens
+                bar_indices = np.nonzero(np.isin(seq[:-self.max_seq_len], self.bar_codes))[0]
+                start_indices = np.random.choice(bar_indices)
+                seq = np.concatenate((seq[:1], seq[start_indices:]))
+                # recount from bar_1
+                bar_indices = np.nonzero(np.isin(seq, self.bar_codes))[0]
+                for i, index in range(bar_indices):
+                    seq[index] = self.indexer[f'bar_{i}']
 
         # Trim sequence to max_seq_len
         if self.max_seq_len is not None and len(seq) > self.max_seq_len:
