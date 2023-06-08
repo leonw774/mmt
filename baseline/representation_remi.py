@@ -415,10 +415,6 @@ def encode(music: muspy.Music, encoding, indexer):
 
     time_signature_map = set(encoding['time_signature_map'])
     max_bar = encoding['max_bar']
-    assert all([
-        f'{ts.numerator}/{ts.denominator}' in time_signature_map
-        for ts in music.time_signatures
-    ])
 
     if len(music.time_signatures) == 0:
         music.time_signatures.append(muspy.TimeSignature(0, 4, 4))
@@ -458,7 +454,10 @@ def encode(music: muspy.Music, encoding, indexer):
         bar_num += 1
         if cur_bar_start_time == next_timesig_start_time:
             timesig_cursor += 1
-            cur_bar_length = 4 * music.time_signatures[timesig_cursor].numerator * resolution // music.time_signatures[timesig_cursor].denominator
+            n = music.time_signatures[timesig_cursor].numerator
+            d = music.time_signatures[timesig_cursor].denominator
+            assert f'{n}/{d}' in time_signature_map
+            cur_bar_length = 4 * n * resolution // d
             if len(music.time_signatures) > timesig_cursor+1:
                 next_timesig_start_time = music.time_signatures[timesig_cursor+1].time
                 assert (next_timesig_start_time - cur_bar_start_time) % cur_bar_length == 0
@@ -525,8 +524,6 @@ def encode(music: muspy.Music, encoding, indexer):
     for i, event in enumerate(all_event_list):
         order = event[1]
         if order == BAR_ORDER:
-            if i > max_event_num:
-                break
             codes.append(f'bar_{event[2]}')
             cur_bar_start_time = event[0]
         elif order == TIMESIG_ORDER:
