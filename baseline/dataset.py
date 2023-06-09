@@ -142,7 +142,7 @@ class MusicDataset(torch.utils.data.Dataset):
         self.max_bar = max_bar
         self.use_csv = use_csv
         self.use_augmentation = use_augmentation
-        self.valid_name_indices = []
+        self.valid_names = []
         self.caches = dict()
         if max_bar is not None and max_bar != 0:
             self.encoding['max_bar'] = max_bar
