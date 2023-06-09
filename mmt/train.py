@@ -54,7 +54,7 @@ def parse_args(args=None, namespace=None):
     )
     parser.add_argument(
         "--aug",
-        action=argparse.BooleanOptionalAction,
+        action='store_true',
         default=True,
         help="whether to use data augmentation",
     )
@@ -83,13 +83,13 @@ def parse_args(args=None, namespace=None):
     )
     parser.add_argument(
         "--abs_pos_emb",
-        action=argparse.BooleanOptionalAction,
+        action='store_true',
         default=True,
         help="whether to use absolute positional embedding",
     )
     parser.add_argument(
         "--rel_pos_emb",
-        action=argparse.BooleanOptionalAction,
+        action='store_true',
         default=False,
         help="whether to use relative positional embedding",
     )
@@ -108,7 +108,7 @@ def parse_args(args=None, namespace=None):
     )
     parser.add_argument(
         "--early_stopping",
-        action=argparse.BooleanOptionalAction,
+        action='store_true',
         default=True,
         help="whether to use early stopping",
     )

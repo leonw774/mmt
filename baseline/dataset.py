@@ -147,7 +147,7 @@ class MusicDataset(torch.utils.data.Dataset):
         if max_bar is not None and max_bar != 0:
             self.encoding['max_bar'] = max_bar
         self.load_caches(num_worker)
-    
+
         if self.representation == 'remi':
             self.bar_codes = np.array(sorted({
                 self.indexer[f'bar_{i}']
@@ -155,13 +155,14 @@ class MusicDataset(torch.utils.data.Dataset):
             }))
 
     def load_caches(self, num_worker):
-        cache_path = self.data_dir / (self.representation + ".pickle")
+        cache_path = self.data_dir / f'{self.representation}.pickle'
         if cache_path.is_file():
             print('Found pickled cache, using it.')
             with open(cache_path, 'rb') as cache_file:
                 obj = pickle.load(cache_file)
                 self.caches = obj[0]
-                self.valid_name_indices = obj[1]
+                self.valid_names = obj[1]
+            self.names = set(self.valid_names).intersection(self.names)
         else:
             with multiprocessing.Pool(num_worker) as pool:
                 get_code_partial = partial(
@@ -174,7 +175,7 @@ class MusicDataset(torch.utils.data.Dataset):
                 try:
                     for i, codes in tqdm(enumerate(pool.imap(get_code_partial, self.names)), desc='Caching codes'):
                         if codes is not None:
-                            self.valid_name_indices.append(i)
+                            self.valid_names.append(self.names[i])
                             self.caches[self.names[i]] = codes
                 except Exception as e:
                     print(len(self.caches))
@@ -182,11 +183,11 @@ class MusicDataset(torch.utils.data.Dataset):
                     raise e
 
     def __len__(self):
-        return len(self.valid_name_indices)
+        return len(self.names)
 
     def __getitem__(self, idx):
         # Get the name
-        name = self.names[self.valid_name_indices[idx]]
+        name = self.names[self.valid_names[idx]]
 
         # Get the code
         if self.representation == 'mmm':

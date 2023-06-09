@@ -107,7 +107,7 @@ def save_pianoroll(filename, music, size=None, **kwargs):
 def save_result(filename, data, sample_dir, encoding):
     """Save the results in multiple formats."""
     # Save as a numpy array
-    np.save(sample_dir / "npy" / f"{filename}.npy", data)
+    # np.save(sample_dir / "npy" / f"{filename}.npy", data)
 
     # Save as a CSV file
     # representation.save_csv_codes(sample_dir / "csv" / f"{filename}.csv", data)
@@ -121,7 +121,7 @@ def save_result(filename, data, sample_dir, encoding):
     music = representation.decode(data, encoding)
 
     # Save as a MusPy JSON file
-    music.save(sample_dir / "json" / f"{filename}.json")
+    # music.save(sample_dir / "json" / f"{filename}.json")
 
     # Save as a piano roll
     # save_pianoroll(
@@ -177,8 +177,7 @@ def main():
     if args.dataset is not None:
         if args.names is None:
             args.names = pathlib.Path(
-                # f"data/{args.dataset}/processed/test-names.txt"
-                f"data/{args.dataset}/processed/my-test-names.txt"
+                f"data/{args.dataset}/processed/test-names.txt"
             )
         if args.in_dir is None:
             args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/notes/")
@@ -215,10 +214,10 @@ def main():
     # Make sure the sample directory exists
     sample_dir = args.out_dir / "samples"
     sample_dir.mkdir(exist_ok=True)
-    (sample_dir / "npy").mkdir(exist_ok=True)
+    # (sample_dir / "npy").mkdir(exist_ok=True)
     # (sample_dir / "csv").mkdir(exist_ok=True)
     # (sample_dir / "txt").mkdir(exist_ok=True)
-    (sample_dir / "json").mkdir(exist_ok=True)
+    # (sample_dir / "json").mkdir(exist_ok=True)
     # (sample_dir / "png").mkdir(exist_ok=True)
     (sample_dir / "mid").mkdir(exist_ok=True)
     # (sample_dir / "wav").mkdir(exist_ok=True)
@@ -226,6 +225,10 @@ def main():
     # (sample_dir / "png-trimmed").mkdir(exist_ok=True)
     # (sample_dir / "wav-trimmed").mkdir(exist_ok=True)
     # (sample_dir / "mp3-trimmed").mkdir(exist_ok=True)
+
+    (sample_dir / "mid" / "unconditional").mkdir(exist_ok=True)
+    (sample_dir / "mid" / "instrument-informed").mkdir(exist_ok=True)
+    (sample_dir / "mid" / "16-beat-continuation").mkdir(exist_ok=True)
 
     # Get the specified device
     device = torch.device(
@@ -295,8 +298,8 @@ def main():
             # ------------
             # Ground truth
             # ------------
-            truth_np = batch["seq"][0].numpy()
-            save_result(f"{i}_truth", truth_np, sample_dir, encoding)
+            # truth_np = batch["seq"][0].numpy()
+            # save_result(f"{i}_truth", truth_np, sample_dir, encoding)
 
             # ------------------------
             # Unconditioned generation
@@ -320,7 +323,7 @@ def main():
 
             # Save the results
             save_result(
-                f"{i}_unconditioned", generated_np[0], sample_dir, encoding
+                f"unconditioned/{i}", generated_np[0], sample_dir, encoding
             )
 
             # ------------------------------
@@ -345,7 +348,7 @@ def main():
 
             # Save the results
             save_result(
-                f"{i}_instrument-informed",
+                f"instrument-informed/{i}",
                 generated_np[0],
                 sample_dir,
                 encoding,
@@ -384,8 +387,12 @@ def main():
             # --------------------
 
             # Get output start tokens
-            cond_len = int(np.argmax(batch["seq"][0, :, 1] >= beat_16))
-            tgt_start = batch["seq"][:1, :cond_len].to(device)
+            tmp = batch["seq"][0, :, 1] >= beat_16
+            if torch.any(tmp):
+                cond_len = int(np.argmax(tmp))
+                tgt_start = batch["seq"][:1, :cond_len].to(device)
+            else:
+                tgt_start = batch["seq"].to(device)
 
             # Generate new samples
             generated = model.generate(
@@ -401,7 +408,7 @@ def main():
 
             # Save results
             save_result(
-                f"{i}_16-beat-continuation",
+                f"16-beat-continuation/{i}",
                 generated_np[0],
                 sample_dir,
                 encoding,

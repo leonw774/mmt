@@ -111,7 +111,7 @@ def save_result(
 ):
     """Save the results in multiple formats."""
     # Save as a numpy array
-    np.save(sample_dir / "npy" / f"{filename}.npy", data)
+    # np.save(sample_dir / "npy" / f"{filename}.npy", data)
 
     # Save as a CSV file
     # representation.save_csv_codes(sample_dir / "csv" / f"{filename}.csv", data)
@@ -125,7 +125,7 @@ def save_result(
     music = representation.decode(data, encoding, vocabulary)
 
     # Save as a MusPy JSON file
-    music.save(sample_dir / "json" / f"{filename}.json")
+    # music.save(sample_dir / "json" / f"{filename}.json")
 
     # Save as a piano roll
     # save_pianoroll(
@@ -159,8 +159,7 @@ def main():
     if args.dataset is not None:
         if args.names is None:
             args.names = pathlib.Path(
-                # f"data/{args.dataset}/processed/test-names.txt"
-                f"data/{args.dataset}/processed/my-test-names.txt"
+                f"data/{args.dataset}/processed/test-names.txt"
             )
         if args.in_dir is None:
             args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/notes/")
@@ -197,14 +196,18 @@ def main():
     # Make sure the sample directory exists
     sample_dir = args.out_dir / "samples"
     sample_dir.mkdir(exist_ok=True)
-    (sample_dir / "npy").mkdir(exist_ok=True)
+    # (sample_dir / "npy").mkdir(exist_ok=True)
     # (sample_dir / "csv").mkdir(exist_ok=True)
     # (sample_dir / "txt").mkdir(exist_ok=True)
-    (sample_dir / "json").mkdir(exist_ok=True)
+    # (sample_dir / "json").mkdir(exist_ok=True)
     # (sample_dir / "png").mkdir(exist_ok=True)
     (sample_dir / "mid").mkdir(exist_ok=True)
     # (sample_dir / "wav").mkdir(exist_ok=True)
     # (sample_dir / "mp3").mkdir(exist_ok=True)
+
+    (sample_dir / "mid" / "unconditional").mkdir(exist_ok=True)
+    (sample_dir / "mid" / "instrument-informed").mkdir(exist_ok=True)
+    (sample_dir / "mid" / "16-beat-continuation").mkdir(exist_ok=True)
 
     # Get the specified device
     device = torch.device(
@@ -301,15 +304,15 @@ def main():
             # ------------
             # Ground truth
             # ------------
-            truth_np = batch["seq"][0].numpy()
-            save_result(
-                f"{i}_truth",
-                truth_np,
-                sample_dir,
-                encoding,
-                vocabulary,
-                representation,
-            )
+            # truth_np = batch["seq"][0].numpy()
+            # save_result(
+            #     f"{i}_truth",
+            #     truth_np,
+            #     sample_dir,
+            #     encoding,
+            #     vocabulary,
+            #     representation,
+            # )
 
             # ------------------------
             # Unconditioned generation
@@ -332,7 +335,7 @@ def main():
 
             # Save the results
             save_result(
-                f"{i}_unconditioned",
+                f"unconditioned/{i}",
                 generated_np[0],
                 sample_dir,
                 encoding,
@@ -348,13 +351,15 @@ def main():
             # --------------------
 
             # Get output start tokens
-            cond_len = 0
+
+            cond_len = None
             for n, code in enumerate(batch["seq"][0]):
-                if vocabulary[code].startswith('beat'):
-                    if int(vocabulary[code][5:]) >= 16:
-                        cond_len = n
-                        break
-            tgt_start = batch["seq"][:1, :cond_len].to(device)
+                if vocabulary[code] == 'bar_5':
+                    cond_len = n
+            if cond_len is not None:
+                tgt_start = batch["seq"][:1, :cond_len].to(device)
+            else:
+                tgt_start = batch["seq"].to(device)
 
             # Generate new samples
             generated = model.generate(

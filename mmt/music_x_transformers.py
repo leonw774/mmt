@@ -329,10 +329,14 @@ class MusicAutoregressiveWrapper(nn.Module):
             )
 
         if monotonicity_dim is not None:
-            current_values = {
-                d: torch.max(start_tokens[:, :, d], 1)[0]
-                for d in monotonicity_dim
-            }
+            try:
+                current_values = {
+                    d: torch.max(start_tokens[:, :, d], 1)[0]
+                    for d in monotonicity_dim
+                }
+            except Exception as e:
+                print(start_tokens)
+                raise e
         else:
             current_values = None
 
