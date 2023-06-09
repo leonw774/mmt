@@ -283,7 +283,7 @@ def main():
     cache_path = pathlib.Path(f"data/{args.dataset}/processed/{args.representation}.pickle")
     with open(cache_path, 'wb') as cache_file:
         pickle.dump(
-            (dataset.caches, dataset.valid_name_indices),
+            (dataset.caches, dataset.valid_names),
             cache_file
         )
 
