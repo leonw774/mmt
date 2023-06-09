@@ -162,7 +162,7 @@ class MusicDataset(torch.utils.data.Dataset):
                 obj = pickle.load(cache_file)
                 self.caches = obj[0]
                 self.valid_names = obj[1]
-            self.names = set(self.valid_names).intersection(self.names)
+            self.names = list(set(self.valid_names).intersection(self.names))
         else:
             with multiprocessing.Pool(num_worker) as pool:
                 get_code_partial = partial(
@@ -181,13 +181,14 @@ class MusicDataset(torch.utils.data.Dataset):
                     print(len(self.caches))
                     print([codes.shape[0] for codes in self.caches.values()])
                     raise e
+                self.names = self.valid_names
 
     def __len__(self):
         return len(self.names)
 
     def __getitem__(self, idx):
         # Get the name
-        name = self.names[self.valid_names[idx]]
+        name = self.names[idx]
 
         # Get the code
         if self.representation == 'mmm':
