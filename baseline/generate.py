@@ -2,7 +2,7 @@ import argparse
 import logging
 import pathlib
 import pprint
-import subprocess
+from time import time
 import sys
 
 import matplotlib.pyplot as plt
@@ -295,6 +295,9 @@ def main():
     else:
         raise ValueError("Unknown logits filter.")
 
+    uncond_time = 0
+    beat16_time = 0
+
     # Iterate over the dataset
     with torch.no_grad():
         data_iter = iter(test_loader)
@@ -317,7 +320,7 @@ def main():
             # ------------------------
             # Unconditioned generation
             # ------------------------
-
+            bgtime = time()
             # Get output start tokens
             tgt_start = torch.zeros((1, 1), dtype=torch.long, device=device)
             tgt_start[:, 0] = sos
@@ -342,7 +345,7 @@ def main():
                 vocabulary,
                 representation,
             )
-
+            uncond_time += time() - bgtime
             if train_args["representation"] == "mmm":
                 continue
 
@@ -351,7 +354,7 @@ def main():
             # --------------------
 
             # Get output start tokens
-
+            bgtime = time()
             cond_len = None
             for n, code in enumerate(batch["seq"][0]):
                 if vocabulary[code] == 'bar_5':
@@ -380,6 +383,7 @@ def main():
                 sample_dir,
                 encoding,
             )
+            beat16_time += time() - bgtime
 
 
 if __name__ == "__main__":

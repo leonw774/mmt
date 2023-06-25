@@ -2,7 +2,7 @@ import argparse
 import logging
 import pathlib
 import pprint
-import subprocess
+from time import time
 import sys
 
 import matplotlib.pyplot as plt
@@ -289,6 +289,10 @@ def main():
     # beat_4 = encoding["beat_code_map"][4]
     beat_16 = encoding["beat_code_map"][16]
 
+    uncond_time = 0
+    instr_time = 0
+    beat16_time = 0
+
     # Iterate over the dataset
     with torch.no_grad():
         data_iter = iter(test_loader)
@@ -304,7 +308,7 @@ def main():
             # ------------------------
             # Unconditioned generation
             # ------------------------
-
+            bgtime = time()
             # Get output start tokens
             tgt_start = torch.zeros((1, 1, 6), dtype=torch.long, device=device)
             tgt_start[:, 0, 0] = sos
@@ -325,11 +329,11 @@ def main():
             save_result(
                 f"unconditioned/{i}", generated_np[0], sample_dir, encoding
             )
-
+            uncond_time += time() - bgtime
             # ------------------------------
             # Instrument-informed generation
             # ------------------------------
-
+            bgtime = time()
             # Get output start tokens
             prefix_len = int(np.argmax(batch["seq"][0, :, 1] >= beat_0))
             tgt_start = batch["seq"][:1, :prefix_len].to(device)
@@ -353,7 +357,7 @@ def main():
                 sample_dir,
                 encoding,
             )
-
+            instr_time += time() - bgtime
             # # -------------------
             # # 4-beat continuation
             # # -------------------
@@ -385,7 +389,7 @@ def main():
             # --------------------
             # 16-beat continuation
             # --------------------
-
+            bgtime = time()
             # Get output start tokens
             tmp = batch["seq"][0, :, 1] >= beat_16
             if torch.any(tmp):
@@ -413,7 +417,11 @@ def main():
                 sample_dir,
                 encoding,
             )
+            beat16_time += time() - bgtime
 
+    print("Unconditional used time:", uncond_time)
+    print("Instrument-informed used time:", instr_time)
+    print("16-beat continuation used time:", beat16_time)
 
 if __name__ == "__main__":
     main()
