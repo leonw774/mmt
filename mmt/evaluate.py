@@ -135,7 +135,7 @@ def main():
         if args.in_dir is None:
             args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/notes/")
         if args.out_dir is None:
-            args.out_dir = pathlib.Path(f"exp/test_{args.dataset}")
+            args.out_dir = pathlib.Path(f"exp/mmt_{args.dataset}")
 
     # Set up the logger
     logging.basicConfig(

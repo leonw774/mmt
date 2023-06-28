@@ -207,7 +207,7 @@ def main():
         if args.in_dir is None:
             args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/notes/")
         if args.out_dir is None:
-            args.out_dir = pathlib.Path(f"exp/test_baseline_{args.dataset}")
+            args.out_dir = pathlib.Path(f"exp/mmm_{args.dataset}")
     if args.jobs is None:
         args.jobs = min(args.batch_size, 8)
     representation = representation_mmm

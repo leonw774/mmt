@@ -30,6 +30,13 @@ def parse_args(args=None, namespace=None):
         required=True,
         help="dataset key",
     )
+    parser.add_argument(
+        "-r",
+        "--representation",
+        choices=("mmm", "remi"),
+        required=True,
+        help="representation key",
+    )
     parser.add_argument("-n", "--names", type=pathlib.Path, help="input names")
     parser.add_argument(
         "-i", "--in_dir", type=pathlib.Path, help="input data directory"
@@ -164,7 +171,7 @@ def main():
         if args.in_dir is None:
             args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/notes/")
         if args.out_dir is None:
-            args.out_dir = pathlib.Path(f"exp/test_{args.dataset}")
+            args.out_dir = pathlib.Path(f"exp/{args.representation}_{args.dataset}")
 
     # Set up the logger
     logging.basicConfig(
@@ -385,6 +392,8 @@ def main():
             )
             beat16_time += time() - bgtime
 
+    print("Unconditional used time:", uncond_time)
+    print("16-beat continuation used time:", beat16_time)
 
 if __name__ == "__main__":
     main()
