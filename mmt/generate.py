@@ -38,7 +38,7 @@ def parse_args(args=None, namespace=None):
     parser.add_argument(
         "-ns",
         "--n_samples",
-        default=50,
+        default=None,
         type=int,
         help="number of samples to generate",
     )
@@ -255,6 +255,8 @@ def main():
         num_workers=args.jobs,
         collate_fn=dataset.MusicDataset.collate,
     )
+    if args.n_sample is None:
+        args.n_sample = len(test_dataset)
 
     # Create the model
     logging.info(f"Creating the model...")
