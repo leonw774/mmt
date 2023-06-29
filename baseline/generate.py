@@ -212,7 +212,7 @@ def main():
     # (sample_dir / "wav").mkdir(exist_ok=True)
     # (sample_dir / "mp3").mkdir(exist_ok=True)
 
-    (sample_dir / "mid" / "unconditional").mkdir(exist_ok=True)
+    (sample_dir / "mid" / "unconditioned").mkdir(exist_ok=True)
     (sample_dir / "mid" / "instrument-informed").mkdir(exist_ok=True)
     (sample_dir / "mid" / "16-beat-continuation").mkdir(exist_ok=True)
 
