@@ -250,7 +250,7 @@ def main():
         indexer=indexer,
         encode_fn=representation.encode,
         max_seq_len=train_args["max_seq_len"],
-        max_beat=train_args["max_beat"],
+        max_bar=train_args["max_bar"],
         use_csv=args.use_csv,
     )
     test_loader = torch.utils.data.DataLoader(
