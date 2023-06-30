@@ -312,7 +312,6 @@ def main():
     with torch.no_grad():
         data_iter = iter(test_loader)
         for i in tqdm.tqdm(range(args.n_samples), ncols=80):
-            batch = next(data_iter)
 
             # ------------
             # Ground truth
@@ -372,6 +371,7 @@ def main():
 
             # Get output start tokens
             bgtime = time()
+            batch = next(data_iter)
             while True:
                 cond_len = None
                 for n, code in enumerate(batch["seq"][0]):
