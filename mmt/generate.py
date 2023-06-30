@@ -421,9 +421,9 @@ def main():
             )
             beat16_time += time() - bgtime
 
-    logging.info("Unconditional used time:", uncond_time)
-    logging.info("Instrument-informed used time:", instr_time)
-    logging.info("16-beat continuation used time:", beat16_time)
+    logging.info(f"Unconditional used time: {uncond_time}")
+    logging.info(f"Instrument-informed used time: {instr_time}")
+    logging.info(f"16-beat continuation used time: {beat16_time}")
 
 if __name__ == "__main__":
     main()
