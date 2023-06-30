@@ -394,8 +394,8 @@ def main():
             )
             beat16_time += time() - bgtime
 
-    print("Unconditional used time:", uncond_time)
-    print("16-beat continuation used time:", beat16_time)
+    logging.info("Unconditional used time:", uncond_time)
+    logging.info("16-beat continuation used time:", beat16_time)
 
 if __name__ == "__main__":
     main()

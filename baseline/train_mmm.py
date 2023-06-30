@@ -258,7 +258,7 @@ def main():
         encode_fn=representation.encode,
         representation='mmm',
         max_seq_len=args.max_seq_len,
-        max_beat=args.max_bar,
+        max_bar=args.max_bar,
         use_augmentation=args.aug,
         use_csv=args.use_csv,
     )
@@ -276,7 +276,7 @@ def main():
         indexer=indexer,
         encode_fn=representation.encode,
         max_seq_len=args.max_seq_len,
-        max_beat=args.max_beat,
+        max_bar=args.max_beat,
         use_csv=args.use_csv,
     )
     valid_loader = torch.utils.data.DataLoader(
