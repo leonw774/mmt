@@ -275,6 +275,7 @@ def main():
         encoding=encoding,
         indexer=indexer,
         encode_fn=representation.encode,
+        representation='mmm',
         max_seq_len=args.max_seq_len,
         max_bar=args.max_bar,
         use_csv=args.use_csv,
