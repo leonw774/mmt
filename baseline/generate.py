@@ -223,9 +223,9 @@ def main():
     logging.info(f"Using device: {device}")
 
     # Get representation
-    if train_args["representation"] == "mmm":
+    if args.representation == "mmm":
         representation = representation_mmm
-    elif train_args["representation"] == "remi":
+    elif args.representation == "remi":
         representation = representation_remi
     else:
         raise ValueError(
@@ -330,68 +330,81 @@ def main():
             # Unconditioned generation
             # ------------------------
             bgtime = time()
-            # Get output start tokens
-            tgt_start = torch.zeros((1, 1), dtype=torch.long, device=device)
-            tgt_start[:, 0] = sos
 
-            # Generate new samples
-            generated = model.generate(
-                tgt_start,
-                args.seq_len,
-                eos_token=eos,
-                temperature=args.temperature,
-                filter_logits_fn=filter_logits_fn,
-                filter_thres=args.filter_threshold,
-            )
-            generated_np = torch.cat((tgt_start, generated), 1).cpu().numpy()
+            while True:
+                # Get output start tokens
+                tgt_start = torch.zeros((1, 1), dtype=torch.long, device=device)
+                tgt_start[:, 0] = sos
 
-            # Save the results
-            save_result(
-                f"unconditioned/{i}",
-                generated_np[0],
-                sample_dir,
-                encoding,
-                vocabulary,
-                representation,
-            )
+                # Generate new samples
+                generated = model.generate(
+                    tgt_start,
+                    args.seq_len,
+                    eos_token=eos,
+                    temperature=args.temperature,
+                    filter_logits_fn=filter_logits_fn,
+                    filter_thres=args.filter_threshold,
+                )
+                generated_np = torch.cat((tgt_start, generated), 1).cpu().numpy()
+
+                try:
+                    # Save the results
+                    save_result(
+                        f"unconditioned/{i}",
+                        generated_np[0],
+                        sample_dir,
+                        encoding,
+                        vocabulary,
+                        representation,
+                    )
+                    break
+                except Exception:
+                    pass
+
             uncond_time += time() - bgtime
-            if train_args["representation"] == "mmm":
+            if args.representation == "mmm":
                 continue
 
             # --------------------
-            # 16-beat continuation
+            # 4-bar continuation
             # --------------------
 
             # Get output start tokens
             bgtime = time()
-            cond_len = None
-            for n, code in enumerate(batch["seq"][0]):
-                if vocabulary[code] == 'bar_5':
-                    cond_len = n
-            if cond_len is not None:
-                tgt_start = batch["seq"][:1, :cond_len].to(device)
-            else:
-                tgt_start = batch["seq"].to(device)
+            while True:
+                cond_len = None
+                for n, code in enumerate(batch["seq"][0]):
+                    if vocabulary[code] == 'bar_5':
+                        cond_len = n
+                if cond_len is not None:
+                    tgt_start = batch["seq"][:1, :cond_len].to(device)
+                else:
+                    tgt_start = batch["seq"].to(device)
 
-            # Generate new samples
-            generated = model.generate(
-                tgt_start,
-                args.seq_len,
-                eos_token=eos,
-                temperature=args.temperature,
-                filter_logits_fn=args.filter,
-                filter_thres=args.filter_threshold,
-                monotonicity_dim=("type", "beat"),
-            )
-            generated_np = torch.cat((tgt_start, generated), 1).cpu().numpy()
+                # Generate new samples
+                generated = model.generate(
+                    tgt_start,
+                    args.seq_len,
+                    eos_token=eos,
+                    temperature=args.temperature,
+                    filter_logits_fn=args.filter,
+                    filter_thres=args.filter_threshold,
+                    monotonicity_dim=("type", "beat"),
+                )
+                generated_np = torch.cat((tgt_start, generated), 1).cpu().numpy()
 
-            # Save results
-            save_result(
-                f"{i}_16-beat-continuation",
-                generated_np[0],
-                sample_dir,
-                encoding,
-            )
+                try:
+                    # Save results
+                    save_result(
+                        f"{i}_16-beat-continuation",
+                        generated_np[0],
+                        sample_dir,
+                        encoding,
+                    )
+                    break
+                except Exception:
+                    pass
+
             beat16_time += time() - bgtime
 
     logging.info("Unconditional used time:", uncond_time)
