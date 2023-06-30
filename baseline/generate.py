@@ -248,7 +248,7 @@ def main():
         args.in_dir,
         encoding=encoding,
         indexer=indexer,
-        encode_fn=representation.encode_notes,
+        encode_fn=representation.encode,
         max_seq_len=train_args["max_seq_len"],
         max_beat=train_args["max_beat"],
         use_csv=args.use_csv,
