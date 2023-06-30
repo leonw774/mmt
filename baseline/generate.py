@@ -169,7 +169,7 @@ def main():
                 f"data/{args.dataset}/processed/test-names.txt"
             )
         if args.in_dir is None:
-            args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/notes/")
+            args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/")
         if args.out_dir is None:
             args.out_dir = pathlib.Path(f"exp/{args.representation}_{args.dataset}")
 
@@ -249,6 +249,7 @@ def main():
         encoding=encoding,
         indexer=indexer,
         encode_fn=representation.encode,
+        representation=args.representation,
         max_seq_len=train_args["max_seq_len"],
         max_bar=train_args["max_bar"],
         use_csv=args.use_csv,
