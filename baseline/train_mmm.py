@@ -205,7 +205,7 @@ def main():
                 f"data/{args.dataset}/processed/valid-names.txt"
             )
         if args.in_dir is None:
-            args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/notes/")
+            args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/")
         if args.out_dir is None:
             args.out_dir = pathlib.Path(f"exp/mmm_{args.dataset}")
     if args.jobs is None:
