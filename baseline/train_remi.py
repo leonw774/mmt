@@ -49,15 +49,9 @@ def parse_args(args=None, namespace=None):
     )
     # Data
     parser.add_argument(
-        '-u', '--update-freq',
-        default=32,
-        type=int,
-        help='update frequency. This times the batch size is the effective batch size of update'
-    )
-    parser.add_argument(
         "-bs",
         "--batch_size",
-        default=16,
+        default=4,
         type=int,
         help="batch size",
     )
@@ -119,6 +113,13 @@ def parse_args(args=None, namespace=None):
         default=1000,
         type=int,
         help="validation frequency",
+    )
+    parser.add_argument(
+        '-ga',
+        '--grad_accumulation',
+        type=int,
+        default=128,
+        help='Number of gradient accumulation'
     )
     parser.add_argument(
         "--early_stopping",
@@ -354,7 +355,8 @@ def main():
 
         for _ in (pbar := tqdm.tqdm(range(args.valid_steps), ncols=80)):
 
-            for _ in range(args.update_freq):
+            total_loss = 0.
+            for _ in range(args.grad_accumulation):
                 # Get next batch
                 try:
                     batch = next(train_iterator)

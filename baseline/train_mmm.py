@@ -50,7 +50,7 @@ def parse_args(args=None, namespace=None):
     parser.add_argument(
         "-bs",
         "--batch_size",
-        default=8,
+        default=2,
         type=int,
         help="batch size",
     )
@@ -112,6 +112,13 @@ def parse_args(args=None, namespace=None):
         default=1000,
         type=int,
         help="validation frequency",
+    )
+    parser.add_argument(
+        '-ga',
+        '--grad_accumulation',
+        type=int,
+        default=4,
+        help='Number of gradient accumulation'
     )
     parser.add_argument(
         "--early_stopping",
@@ -345,22 +352,27 @@ def main():
         recent_losses = []
 
         for batch in (pbar := tqdm.tqdm(range(args.valid_steps), ncols=80)):
-            # Get next batch
-            try:
-                batch = next(train_iterator)
-            except StopIteration:
-                # Reinitialize dataset iterator
-                train_iterator = iter(train_loader)
-                batch = next(train_iterator)
 
-            # Get input and output pair
-            seq = batch["seq"].to(device)
-            mask = batch["mask"].to(device)
+            total_loss = 0.
+            for _ in range(args.grad_accumulation):
+                # Get next batch
+                try:
+                    batch = next(train_iterator)
+                except StopIteration:
+                    # Reinitialize dataset iterator
+                    train_iterator = iter(train_loader)
+                    batch = next(train_iterator)
 
-            # Update the model parameters
-            optimizer.zero_grad()
-            loss = model(seq, mask=mask)
-            loss.backward()
+                # Get input and output pair
+                seq = batch["seq"].to(device)
+                mask = batch["mask"].to(device)
+
+                # Update the model parameters
+                optimizer.zero_grad()
+                loss = model(seq, mask=mask)
+                total_loss += float(loss)
+                loss.backward()
+
             torch.nn.utils.clip_grad_norm_(
                 model.parameters(), args.grad_norm_clip
             )
@@ -368,7 +380,7 @@ def main():
             scheduler.step()
 
             # Compute the moving average of the loss
-            recent_losses.append(float(loss))
+            recent_losses.append(float(total_loss))
             if len(recent_losses) > 10:
                 del recent_losses[0]
             train_loss = np.mean(recent_losses)
