@@ -51,7 +51,7 @@ def parse_args(args=None, namespace=None):
     parser.add_argument(
         "-bs",
         "--batch_size",
-        default=4,
+        default=2,
         type=int,
         help="batch size",
     )
@@ -118,7 +118,7 @@ def parse_args(args=None, namespace=None):
         '-ga',
         '--grad_accumulation',
         type=int,
-        default=128,
+        default=256,
         help='Number of gradient accumulation'
     )
     parser.add_argument(
