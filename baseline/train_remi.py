@@ -104,7 +104,7 @@ def parse_args(args=None, namespace=None):
     # Training
     parser.add_argument(
         "--steps",
-        default=100000,
+        default=100000, # as paper
         type=int,
         help="number of steps",
     )
@@ -118,7 +118,9 @@ def parse_args(args=None, namespace=None):
         '-ga',
         '--grad_accumulation',
         type=int,
-        default=256,
+        # default=128, # as paper
+        # default=4, # as mmm
+        default=16,
         help='Number of gradient accumulation'
     )
     parser.add_argument(
@@ -137,13 +139,15 @@ def parse_args(args=None, namespace=None):
     parser.add_argument(
         "-lr",
         "--learning_rate",
-        default=0.0001,
+        # default=0.0001, # as paper
+        # default=0.0005, # as mmm
+        default=0.0004,
         type=float,
         help="learning rate",
     )
     parser.add_argument(
         "--lr_warmup_steps",
-        default=4000,
+        default=4000, # as paper
         type=int,
         help="learning rate warmup steps",
     )
