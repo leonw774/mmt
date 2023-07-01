@@ -3,6 +3,7 @@ import logging
 import pathlib
 import pprint
 from time import time
+import traceback
 import sys
 
 import matplotlib.pyplot as plt
@@ -214,7 +215,7 @@ def main():
 
     (sample_dir / "mid" / "unconditioned").mkdir(exist_ok=True)
     if args.representation == 'remi':
-        (sample_dir / "mid" / "16-beat-continuation").mkdir(exist_ok=True)
+        (sample_dir / "mid" / "4-bar-continuation").mkdir(exist_ok=True)
 
     # Get the specified device
     device = torch.device(
@@ -260,6 +261,7 @@ def main():
         num_workers=args.jobs,
         collate_fn=dataset.MusicDataset.collate,
     )
+    logging.info(f"Dataset size: {len(test_dataset)}")
     if args.n_samples is None:
         args.n_samples = len(test_dataset)
 
@@ -306,7 +308,7 @@ def main():
         raise ValueError("Unknown logits filter.")
 
     uncond_time = 0
-    beat16_time = 0
+    four_bar_time = 0
 
     # Iterate over the dataset
     with torch.no_grad():
@@ -358,7 +360,9 @@ def main():
                         representation,
                     )
                     break
-                except Exception:
+                except Exception as e:
+                    # print(f'Exception: {e}')
+                    traceback.print_exc()
                     pass
 
             uncond_time += time() - bgtime
@@ -375,7 +379,7 @@ def main():
             while True:
                 cond_len = None
                 for n, code in enumerate(batch["seq"][0]):
-                    if vocabulary[code] == 'bar_5':
+                    if vocabulary[float(code)] == 'bar_5':
                         cond_len = n
                 if cond_len is not None:
                     tgt_start = batch["seq"][:1, :cond_len].to(device)
@@ -388,28 +392,31 @@ def main():
                     args.seq_len,
                     eos_token=eos,
                     temperature=args.temperature,
-                    filter_logits_fn=args.filter,
-                    filter_thres=args.filter_threshold,
-                    monotonicity_dim=("type", "beat"),
+                    filter_logits_fn=filter_logits_fn,
+                    filter_thres=args.filter_threshold
                 )
                 generated_np = torch.cat((tgt_start, generated), 1).cpu().numpy()
 
                 try:
                     # Save results
                     save_result(
-                        f"{i}_16-beat-continuation",
+                        f"4-bar-continuation/{i}",
                         generated_np[0],
                         sample_dir,
                         encoding,
+                        vocabulary,
+                        representation
                     )
                     break
-                except Exception:
+                except Exception as e:
+                    # print(f'Exception: {e}')
+                    traceback.print_exc()
                     pass
 
-            beat16_time += time() - bgtime
+            four_bar_time += time() - bgtime
 
     logging.info(f"Unconditional used time: {uncond_time}")
-    logging.info(f"16-beat continuation used time: {beat16_time}")
+    logging.info(f"4-bar continuation used time: {four_bar_time}")
 
 if __name__ == "__main__":
     main()
