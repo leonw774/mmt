@@ -206,8 +206,8 @@ class MusicDataset(torch.utils.data.Dataset):
                 seq = np.concatenate((seq[:1], seq[start_indices:]))
                 # recount from bar_1
                 bar_indices = np.nonzero(np.isin(seq, self.bar_codes))[0]
-                for i, index in range(bar_indices):
-                    seq[index] = self.indexer[f'bar_{i}']
+                for i, index in enumerate(bar_indices):
+                    seq[index] = self.indexer[f'bar_{i+1}']
 
         # Trim sequence to max_seq_len
         if self.max_seq_len is not None and len(seq) > self.max_seq_len:
