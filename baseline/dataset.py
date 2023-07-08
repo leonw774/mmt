@@ -156,16 +156,15 @@ class MusicDataset(torch.utils.data.Dataset):
 
     def load_caches(self, num_worker):
         cache_path = self.data_dir / f'{self.representation}.pickle'
-        print('Cache path:', cache_path)
         if cache_path.is_file():
-            print('Found pickled cache, using it.')
+            print('Cache path:', cache_path, 'File exists, using it.')
             with open(cache_path, 'rb') as cache_file:
                 obj = pickle.load(cache_file)
                 self.caches = obj[0]
                 self.valid_names = obj[1]
             self.names = list(set(self.valid_names).intersection(self.names))
         else:
-            print('Found no pickled cache, creating it.')
+            print('Cache path:', cache_path, 'File not found, creating it.')
             with multiprocessing.Pool(num_worker) as pool:
                 get_code_partial = partial(
                     get_code,
