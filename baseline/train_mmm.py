@@ -1,5 +1,7 @@
 import argparse
 import logging
+import math
+import os
 import pathlib
 import pprint
 import shutil
@@ -14,6 +16,8 @@ import x_transformers
 import dataset
 import representation_mmm
 import utils
+
+import accelerate
 
 
 @utils.resolve_paths
@@ -50,7 +54,7 @@ def parse_args(args=None, namespace=None):
     parser.add_argument(
         "-bs",
         "--batch_size",
-        default=2,
+        default=8,
         type=int,
         help="batch size",
     )
@@ -76,7 +80,7 @@ def parse_args(args=None, namespace=None):
         "--max_bar",
         default=None,
         type=int,
-        help="maximum number of beats",
+        help="maximum number of bars",
     )
     parser.add_argument("--dim", default=512, type=int, help="model dimension")
     parser.add_argument(
@@ -117,7 +121,7 @@ def parse_args(args=None, namespace=None):
         '-ga',
         '--grad_accumulation',
         type=int,
-        default=4,
+        default=2,
         help='Number of gradient accumulation'
     )
     parser.add_argument(
@@ -167,6 +171,11 @@ def parse_args(args=None, namespace=None):
     # Others
     parser.add_argument("-g", "--gpu", type=int, help="gpu number")
     parser.add_argument(
+        "-p", "--use_parallel",
+        action="store_true",
+        help="use parallel, use with `accelerate launch` and CUDA_VISIBLE_DEVICES"
+    )
+    parser.add_argument(
         "-j",
         "--jobs",
         type=int,
@@ -189,7 +198,8 @@ def get_lr_multiplier(
 
     """
     if step < warmup_steps:
-        return (step + 1) / warmup_steps
+        # The model of REMI+ use inverse-square-root warmup
+        return math.sqrt((step + 1) / warmup_steps)
     if step > decay_end_steps:
         return decay_end_multiplier
     position = (step - warmup_steps) / (decay_end_steps - warmup_steps)
@@ -223,6 +233,19 @@ def main():
     args.out_dir.mkdir(exist_ok=True)
     (args.out_dir / "checkpoints").mkdir(exist_ok=True)
 
+    # Get the specified device
+    if not args.use_parallel:
+        device = torch.device(
+            f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
+        )
+        logging.info(f"Using device: {device}")
+        is_main_process = True
+        parallel_devices_count = 1 
+    else:
+        accelerator = accelerate.Accelerator()
+        is_main_process = accelerator.is_main_process
+        parallel_devices_count = len(os.getenv('CUDA_VISIBLE_DEVICES').split(','))
+
     # Set up the logger
     logging.basicConfig(
         level=logging.ERROR if args.quiet else logging.INFO,
@@ -233,21 +256,16 @@ def main():
         ],
     )
 
-    # Log command called
-    logging.info(f"Running command: python {' '.join(sys.argv)}")
+    if is_main_process:
+        # Log command called
+        logging.info(f"Running command: python {' '.join(sys.argv)}")
 
-    # Log arguments
-    logging.info(f"Using arguments:\n{pprint.pformat(vars(args))}")
+        # Log arguments
+        logging.info(f"Using arguments:\n{pprint.pformat(vars(args))}")
 
-    # Save command-line arguments
-    logging.info(f"Saved arguments to {args.out_dir / 'train-args.json'}")
-    utils.save_args(args.out_dir / "train-args.json", args)
-
-    # Get the specified device
-    device = torch.device(
-        f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
-    )
-    logging.info(f"Using device: {device}")
+        # Save command-line arguments
+        logging.info(f"Saved arguments to {args.out_dir / 'train-args.json'}")
+        utils.save_args(args.out_dir / "train-args.json", args)
 
     # Load the encoding
     encoding = representation.get_encoding()
@@ -256,7 +274,8 @@ def main():
     indexer = representation.Indexer(encoding["event_code_map"])
 
     # Create the dataset and data loader
-    logging.info(f"Creating the data loader...")
+    if is_main_process:
+        logging.info(f"Creating the data loader...")
     train_dataset = dataset.MusicDataset(
         args.train_names,
         args.in_dir,
@@ -271,7 +290,7 @@ def main():
     )
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        args.batch_size,
+        args.batch_size // parallel_devices_count,
         shuffle=True,
         num_workers=args.jobs,
         collate_fn=dataset.MusicDataset.collate,
@@ -289,13 +308,14 @@ def main():
     )
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
-        args.batch_size,
+        args.batch_size // parallel_devices_count,
         num_workers=args.jobs,
         collate_fn=dataset.MusicDataset.collate,
     )
 
     # Create the model
-    logging.info(f"Creating model...")
+    if is_main_process:
+        logging.info(f"Creating model...")
     model = x_transformers.TransformerWrapper(
         num_tokens=len(indexer),
         max_seq_len=args.max_seq_len,
@@ -309,16 +329,7 @@ def main():
             ff_dropout=args.dropout,
         ),
         use_abs_pos_emb=args.abs_pos_emb,
-    ).to(device)
-    model = x_transformers.AutoregressiveWrapper(model)
-
-    # Summarize the model
-    n_parameters = sum(p.numel() for p in model.parameters())
-    n_trainables = sum(
-        p.numel() for p in model.parameters() if p.requires_grad
     )
-    logging.info(f"Number of parameters: {n_parameters}")
-    logging.info(f"Number of trainable parameters: {n_trainables}")
 
     # Create the optimizer
     optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
@@ -332,9 +343,29 @@ def main():
         ),
     )
 
+    # Prepare model
+    if args.use_parallel:
+        model = x_transformers.AutoregressiveWrapper(model)
+        model, optimizer, train_loader, valid_loader = accelerator.prepare(
+            model, optimizer, train_loader, valid_loader
+        )
+    else:
+        model = model.to(device)
+        model = x_transformers.AutoregressiveWrapper(model)
+
+    # Summarize the model
+    if is_main_process:
+        n_parameters = sum(p.numel() for p in model.parameters())
+        n_trainables = sum(
+            p.numel() for p in model.parameters() if p.requires_grad
+        )
+        logging.info(f"Number of parameters: {n_parameters}")
+        logging.info(f"Number of trainable parameters: {n_trainables}")
+
     # Create a file to record losses
-    loss_csv = open(args.out_dir / "loss.csv", "w")
-    loss_csv.write("step,train_loss,valid_loss\n")
+    if is_main_process:
+        loss_csv = open(args.out_dir / "loss.csv", "w")
+        loss_csv.write("step,train_loss,valid_loss\n")
 
     # Initialize variables
     step = 0
@@ -347,11 +378,12 @@ def main():
     while step < args.steps:
 
         # Training
-        logging.info(f"Training...")
+        if is_main_process:
+            logging.info(f"Training...")
         model.train()
         recent_losses = []
 
-        for batch in (pbar := tqdm.tqdm(range(args.valid_steps), ncols=80)):
+        for _ in (pbar := tqdm.tqdm(range(args.valid_steps), ncols=80, disable=(not is_main_process))):
 
             total_loss = 0.
             for _ in range(args.grad_accumulation):
@@ -364,23 +396,32 @@ def main():
                     batch = next(train_iterator)
 
                 # Get input and output pair
-                seq = batch["seq"].to(device)
-                mask = batch["mask"].to(device)
+                seq = batch["seq"]
+                mask = batch["mask"]
+                if not args.use_parallel:
+                    seq = seq.to(device)
+                    mask = mask.to(device)
 
                 # Update the model parameters
                 optimizer.zero_grad()
                 loss = model(seq, mask=mask)
-                total_loss += float(loss)
-                loss.backward()
+                if args.use_parallel:
+                    accelerator.backward(loss)
+                else:
+                    loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(
-                model.parameters(), args.grad_norm_clip
-            )
+            if args.use_parallel:
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(model.parameters(), args.grad_norm_clip)
+            else:
+                torch.nn.utils.clip_grad_norm_(
+                    model.parameters(), args.grad_norm_clip
+                )
             optimizer.step()
             scheduler.step()
 
             # Compute the moving average of the loss
-            recent_losses.append(float(total_loss))
+            recent_losses.append(float(loss))
             if len(recent_losses) > 10:
                 del recent_losses[0]
             train_loss = np.mean(recent_losses)
@@ -392,43 +433,57 @@ def main():
         del seq, mask
 
         # Validation
-        logging.info(f"Validating...")
+        if is_main_process:
+            logging.info(f"Validating...")
         model.eval()
         with torch.no_grad():
             total_loss = 0
             count = 0
             for batch in valid_loader:
                 # Get input and output pair
-                seq = batch["seq"].to(device)
-                mask = batch["mask"].to(device)
+                seq = batch["seq"]
+                mask = batch["mask"]
+                if not args.use_parallel:
+                    seq = seq.to(device)
+                    mask = mask.to(device)
 
                 # Pass through the model
                 loss = model(seq, mask=mask)
 
                 # Accumulate validation loss
-                count += len(batch)
+                if args.use_parallel:
+                    count += args.batch_size
+                    gathered_loss = accelerator.gather(loss)
+                    # gathered_loss: List[tensor.Tensor]
+                    gathered_loss = torch.mean(gathered_loss)
+                    total_loss += args.batch_size * float(gathered_loss)
+                else:
+                    count += len(batch)
                 total_loss += len(batch) * float(loss)
         val_loss = total_loss / count
-        logging.info(f"Validation loss: {val_loss:.4f}")
+        if is_main_process:
+            logging.info(f"Validation loss: {val_loss:.4f}")
 
         # Release GPU memory right away
         del seq, mask
 
-        # Write losses to file
-        loss_csv.write(f"{step},{train_loss},{val_loss}\n")
+        if is_main_process:
+            # Write losses to file
+            loss_csv.write(f"{step},{train_loss},{val_loss}\n")
 
-        # Save the model
-        checkpoint_filename = args.out_dir / "checkpoints" / f"model_{step}.pt"
-        torch.save(model.state_dict(), checkpoint_filename)
-        logging.info(f"Saved the model to: {checkpoint_filename}")
+            # Save the model
+            checkpoint_filename = args.out_dir / "checkpoints" / f"model_{step}.pt"
+            torch.save(model.state_dict(), checkpoint_filename)
+            logging.info(f"Saved the model to: {checkpoint_filename}")
 
         # Copy the model if it is the best model so far
         if val_loss < min_val_loss:
             min_val_loss = val_loss
-            shutil.copyfile(
-                checkpoint_filename,
-                args.out_dir / "checkpoints" / "best_model.pt",
-            )
+            if is_main_process:
+                shutil.copyfile(
+                    checkpoint_filename,
+                    args.out_dir / "checkpoints" / "best_model.pt",
+                )
             # Reset the early stopping counter if we found a better model
             if args.early_stopping:
                 count_early_stopping = 0
@@ -447,18 +502,19 @@ def main():
             )
             break
 
-    # Save the optimizer states
-    optimizer_filename = args.out_dir / "checkpoints" / f"optimizer_{step}.pt"
-    torch.save(optimizer.state_dict(), optimizer_filename)
-    logging.info(f"Saved the optimizer state to: {optimizer_filename}")
+    if is_main_process:
+        # Save the optimizer states
+        optimizer_filename = args.out_dir / "checkpoints" / f"optimizer_{step}.pt"
+        torch.save(optimizer.state_dict(), optimizer_filename)
+        logging.info(f"Saved the optimizer state to: {optimizer_filename}")
 
-    # Save the scheduler states
-    scheduler_filename = args.out_dir / "checkpoints" / f"scheduler_{step}.pt"
-    torch.save(scheduler.state_dict(), scheduler_filename)
-    logging.info(f"Saved the scheduler state to: {scheduler_filename}")
+        # Save the scheduler states
+        scheduler_filename = args.out_dir / "checkpoints" / f"scheduler_{step}.pt"
+        torch.save(scheduler.state_dict(), scheduler_filename)
+        logging.info(f"Saved the scheduler state to: {scheduler_filename}")
 
-    # Close the file
-    loss_csv.close()
+        # Close the file
+        loss_csv.close()
 
 
 if __name__ == "__main__":
