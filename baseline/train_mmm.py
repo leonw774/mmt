@@ -233,20 +233,6 @@ def main():
     args.out_dir.mkdir(exist_ok=True)
     (args.out_dir / "checkpoints").mkdir(exist_ok=True)
 
-    # Get the specified device
-    if not args.use_parallel:
-        device = torch.device(
-            f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
-        )
-        logging.info(f"Using device: {device}")
-        is_main_process = True
-        parallel_devices_count = 1 
-    else:
-        accelerator = accelerate.Accelerator()
-        is_main_process = accelerator.is_main_process
-        parallel_devices_count = len(os.getenv('CUDA_VISIBLE_DEVICES').split(','))
-        logging.info("batch_size per GPU: %d", args.batch_size // parallel_devices_count)
-
     # Set up the logger
     logging.basicConfig(
         level=logging.ERROR if args.quiet else logging.INFO,
@@ -256,6 +242,21 @@ def main():
             logging.StreamHandler(sys.stdout),
         ],
     )
+
+    # Get the specified device
+    if not args.use_parallel:
+        device = torch.device(
+            f"cuda:{args.gpu}" if args.gpu is not None else "cpu"
+        )
+        logging.info(f"Using device: {device}")
+        is_main_process = True
+        parallel_devices_count = 1
+    else:
+        accelerator = accelerate.Accelerator()
+        is_main_process = accelerator.is_main_process
+        parallel_devices_count = len(os.getenv('CUDA_VISIBLE_DEVICES').split(','))
+        if is_main_process:
+            logging.info("batch_size per GPU: %d", args.batch_size // parallel_devices_count)
 
     if is_main_process:
         # Log command called
@@ -453,14 +454,14 @@ def main():
 
                 # Accumulate validation loss
                 if args.use_parallel:
-                    count += args.batch_size
-                    gathered_loss = accelerator.gather(loss)
-                    # gathered_loss: List[tensor.Tensor]
-                    gathered_loss = torch.mean(gathered_loss)
-                    total_loss += args.batch_size * float(gathered_loss)
+                    gathered_loss, gathered_seq_len = accelerator.gather((loss, batch["seq_len"]))
+                    sum_gathered_loss = torch.sum(gathered_loss).item()
+                    gathered_batch_size = int(gathered_seq_len.shape[0])
+                    count += gathered_batch_size
+                    total_loss += sum_gathered_loss
                 else:
                     count += len(batch)
-                total_loss += len(batch) * float(loss)
+                    total_loss += len(batch) * float(loss)
         val_loss = total_loss / count
         if is_main_process:
             logging.info(f"Validation loss: {val_loss:.4f}")
@@ -472,9 +473,13 @@ def main():
             # Write losses to file
             loss_csv.write(f"{step},{train_loss},{val_loss}\n")
 
-            # Save the model
-            checkpoint_filename = args.out_dir / "checkpoints" / f"model_{step}.pt"
-            torch.save(model.state_dict(), checkpoint_filename)
+        # Save the model
+        checkpoint_filename = args.out_dir / "checkpoints" / f"model_{step}.pt"
+        accelerator.wait_for_everyone()
+        unwrapped_model = accelerator.unwrap_model(model)
+        accelerator.save(unwrapped_model.state_dict(), checkpoint_filename)
+
+        if is_main_process:
             logging.info(f"Saved the model to: {checkpoint_filename}")
 
         # Copy the model if it is the best model so far
