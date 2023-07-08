@@ -245,6 +245,7 @@ def main():
         accelerator = accelerate.Accelerator()
         is_main_process = accelerator.is_main_process
         parallel_devices_count = len(os.getenv('CUDA_VISIBLE_DEVICES').split(','))
+        logging.info("batch_size per GPU: %d", args.batch_size // parallel_devices_count)
 
     # Set up the logger
     logging.basicConfig(
