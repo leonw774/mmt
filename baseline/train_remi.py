@@ -499,7 +499,7 @@ def main():
 
         # Early stopping
         if (
-            not args.early_stopping
+            args.early_stopping
             and count_early_stopping > args.early_stopping_tolerance
         ):
             logging.info(
