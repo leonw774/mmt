@@ -71,7 +71,7 @@ def parse_args(args=None, namespace=None):
         help="step of the trained model to load (default to the best model)",
     )
     parser.add_argument(
-        "--seq_len", default=1024, type=int, help="sequence length to generate"
+        "--seq_len", default=2048, type=int, help="sequence length to generate"
     )
     parser.add_argument(
         "--temperature",
