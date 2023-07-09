@@ -366,54 +366,58 @@ def main():
                     pass
 
             uncond_time += time() - bgtime
-            if args.representation == "mmm":
-                continue
 
-            # --------------------
-            # 4-bar continuation
-            # --------------------
+        if args.representation == "remi":
+            for i in tqdm.tqdm(range(args.n_samples), ncols=80):
+                # --------------------
+                # 4-bar continuation
+                # --------------------
 
-            # Get output start tokens
-            bgtime = time()
-            batch = next(data_iter)
-            while True:
-                cond_len = None
-                for n, code in enumerate(batch["seq"][0]):
-                    if vocabulary[float(code)] == 'bar_5':
-                        cond_len = n
-                if cond_len is not None:
-                    tgt_start = batch["seq"][:1, :cond_len].to(device)
-                else:
-                    tgt_start = batch["seq"].to(device)
-
-                # Generate new samples
-                generated = model.generate(
-                    tgt_start,
-                    args.seq_len,
-                    eos_token=eos,
-                    temperature=args.temperature,
-                    filter_logits_fn=filter_logits_fn,
-                    filter_thres=args.filter_threshold
-                )
-                generated_np = torch.cat((tgt_start, generated), 1).cpu().numpy()
-
+                # Get output start tokens
+                bgtime = time()
                 try:
-                    # Save results
-                    save_result(
-                        f"4-bar-continuation/{i}",
-                        generated_np[0],
-                        sample_dir,
-                        encoding,
-                        vocabulary,
-                        representation
-                    )
+                    batch = next(data_iter)
+                except StopIteration:
                     break
-                except Exception as e:
-                    # print(f'Exception: {e}')
-                    traceback.print_exc()
-                    pass
 
-            four_bar_time += time() - bgtime
+                while True:
+                    cond_len = None
+                    for n, code in enumerate(batch["seq"][0]):
+                        if vocabulary[float(code)] == 'bar_5':
+                            cond_len = n
+                    if cond_len is not None:
+                        tgt_start = batch["seq"][:1, :cond_len].to(device)
+                    else:
+                        tgt_start = batch["seq"].to(device)
+
+                    # Generate new samples
+                    generated = model.generate(
+                        tgt_start,
+                        args.seq_len,
+                        eos_token=eos,
+                        temperature=args.temperature,
+                        filter_logits_fn=filter_logits_fn,
+                        filter_thres=args.filter_threshold
+                    )
+                    generated_np = torch.cat((tgt_start, generated), 1).cpu().numpy()
+
+                    try:
+                        # Save results
+                        save_result(
+                            f"4-bar-continuation/{i}",
+                            generated_np[0],
+                            sample_dir,
+                            encoding,
+                            vocabulary,
+                            representation
+                        )
+                        break
+                    except Exception as e:
+                        # print(f'Exception: {e}')
+                        traceback.print_exc()
+                        pass
+
+                four_bar_time += time() - bgtime
 
     logging.info(f"Unconditional used time: {uncond_time}")
     logging.info(f"4-bar continuation used time: {four_bar_time}")
