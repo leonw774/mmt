@@ -214,7 +214,6 @@ class MusicDataset(torch.utils.data.Dataset):
 
         if self.representation == 'remi':
             # recount from bar_1
-            bar_indices = np.nonzero(np.isin(seq, self.bar_codes))[0]
             for i, index in enumerate(bar_indices):
                 seq[index] = self.indexer[f'bar_{i+1}']
 
