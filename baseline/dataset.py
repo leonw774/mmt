@@ -203,14 +203,16 @@ class MusicDataset(torch.utils.data.Dataset):
                 bar_indices = np.nonzero(np.isin(seq[:-self.max_seq_len], self.bar_codes))[0]
                 start_indices = np.random.choice(bar_indices)
                 seq = np.concatenate((seq[:1], seq[start_indices:]))
-                # recount from bar_1
-                bar_indices = np.nonzero(np.isin(seq, self.bar_codes))[0]
-                for i, index in enumerate(bar_indices):
-                    seq[index] = self.indexer[f'bar_{i+1}']
 
         # Trim sequence to max_seq_len
         if self.max_seq_len is not None and len(seq) > self.max_seq_len:
             seq = np.concatenate((seq[: self.max_seq_len - 1], seq[-1:]))
+
+        if self.representation == 'remi':
+            # recount from bar_1
+            bar_indices = np.nonzero(np.isin(seq, self.bar_codes))[0]
+            for i, index in enumerate(bar_indices):
+                seq[index] = self.indexer[f'bar_{i+1}']
 
         return {"name": name, "seq": seq}
 
