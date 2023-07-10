@@ -153,6 +153,10 @@ class MusicDataset(torch.utils.data.Dataset):
                 self.indexer[f'bar_{i}']
                 for i in range(1, self.encoding['max_bar'] + 1)
             }))
+            self.bar_indices_of_name = {
+                name: np.nonzero(np.isin(self.caches[name][:-self.max_seq_len], self.bar_codes))[0]
+                for name in self.names
+            }
 
     def load_caches(self, num_worker):
         cache_path = self.data_dir / f'{self.representation}.pickle'
@@ -200,7 +204,7 @@ class MusicDataset(torch.utils.data.Dataset):
             # random start from middle of piece
             if self.max_seq_len is not None and seq.shape[0] > self.max_seq_len:
                 # find index of all bar tokens
-                bar_indices = np.nonzero(np.isin(seq[:-self.max_seq_len], self.bar_codes))[0]
+                bar_indices = self.bar_indices_of_name[name]
                 start_indices = np.random.choice(bar_indices)
                 seq = np.concatenate((seq[:1], seq[start_indices:]))
 

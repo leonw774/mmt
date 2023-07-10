@@ -423,11 +423,12 @@ def main():
             scheduler.step()
 
             # Compute the moving average of the loss
-            recent_losses.append(float(loss))
-            if len(recent_losses) > 10:
-                del recent_losses[0]
-            train_loss = np.mean(recent_losses)
-            pbar.set_postfix(loss=f"{train_loss:8.4f}")
+            if is_main_process:
+                recent_losses.append(float(loss))
+                if len(recent_losses) > 10:
+                    del recent_losses[0]
+                train_loss = np.mean(recent_losses)
+                pbar.set_postfix(loss=f"{train_loss:8.4f}")
 
             step += 1
 
