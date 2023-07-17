@@ -592,6 +592,8 @@ def decode_notes(data, encoding, vocabulary):
             velocity = None
             duration = None
         elif event.startswith("time-signature"):
+            if cur_bar_start_time is None:
+                continue
             timesig = event.split("_")[1].split("/")
             n, d = int(timesig[0]), int(timesig[1])
             if len(time_signatures) == 0 or time_signatures[-1][1] != n:
@@ -605,6 +607,8 @@ def decode_notes(data, encoding, vocabulary):
             velocity = None
             duration = None
         elif event.startswith("tempo"):
+            if cur_bar_start_time is None or position is None:
+                continue
             tempo = float(event.split("_")[1])
             if len(tempos) == 0 or tempos[-1][1] != tempos:
                 tempos.append((cur_bar_start_time+position, tempo))
@@ -620,7 +624,8 @@ def decode_notes(data, encoding, vocabulary):
         elif event.startswith("duration"):
             duration = int(event.split("_")[1])
             if (
-                position is None
+                cur_bar_start_time is None
+                or position is None
                 or program is None
                 or pitch is None
                 or duration is None

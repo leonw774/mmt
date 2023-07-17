@@ -366,6 +366,8 @@ def main():
                     pass
 
             uncond_time += time() - bgtime
+        
+        logging.info(f"Unconditional used time: {uncond_time}")
 
         if args.representation == "remi":
             for i in tqdm.tqdm(range(args.n_samples), ncols=80):
@@ -419,8 +421,7 @@ def main():
 
                 four_bar_time += time() - bgtime
 
-    logging.info(f"Unconditional used time: {uncond_time}")
-    logging.info(f"4-bar continuation used time: {four_bar_time}")
+        logging.info(f"4-bar continuation used time: {four_bar_time}")
 
 if __name__ == "__main__":
     main()
