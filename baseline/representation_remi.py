@@ -583,8 +583,10 @@ def decode_notes(data, encoding, vocabulary):
             # bar_num = int(event.split("_")[1])
             if cur_bar_start_time is None:
                 cur_bar_start_time = 0
-            else:
+            elif cur_bar_length is not None:
                 cur_bar_start_time += cur_bar_length
+            else:
+                continue
             # Reset variables
             position = None
             program = None
