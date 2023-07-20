@@ -203,25 +203,27 @@ class MusicDataset(torch.utils.data.Dataset):
             seq = self.caches[name]
             # random start from middle of piece
             bar_indices = None
-            if self.max_seq_len is not None and seq.shape[0] > self.max_seq_len:
-                # find index of all bar tokens
-                bar_indices = self.bar_indices_of_name[name]
-                random_start = np.random.randint(0, bar_indices.shape[0])
-                start_indices = bar_indices[random_start]
-                seq = np.concatenate((seq[:1], seq[start_indices:]))
+            if self.use_augmentation:
+                if self.max_seq_len is not None and seq.shape[0] > self.max_seq_len:
+                    # find index of all bar tokens
+                    bar_indices = self.bar_indices_of_name[name]
+                    random_start = np.random.randint(0, bar_indices.shape[0])
+                    start_indices = bar_indices[random_start]
+                    seq = np.concatenate((seq[:1], seq[start_indices:]))
 
         # Trim sequence to max_seq_len
         if self.max_seq_len is not None and len(seq) > self.max_seq_len:
             seq = np.concatenate((seq[: self.max_seq_len - 1], seq[-1:]))
 
         if self.representation == 'remi':
-            # recount from bar_1
-            if bar_indices is not None:
-                bar_indices = (bar_indices[random_start:] - (start_indices - 1))
-                for i, index in enumerate(bar_indices):
-                    if index >= len(seq):
-                        break
-                    seq[index] = self.indexer[f'bar_{i+1}']
+            if self.use_augmentation:
+                # recount from bar_1
+                if bar_indices is not None:
+                    bar_indices = (bar_indices[random_start:] - (start_indices - 1))
+                    for i, index in enumerate(bar_indices):
+                        if index >= len(seq):
+                            break
+                        seq[index] = self.indexer[f'bar_{i+1}']
 
         return {"name": name, "seq": seq}
 
