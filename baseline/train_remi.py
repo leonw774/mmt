@@ -121,7 +121,7 @@ def parse_args(args=None, namespace=None):
         '-ga',
         '--grad_accumulation',
         type=int,
-        default=64,
+        default=16,
         help='Number of gradient accumulation'
     )
     parser.add_argument(
