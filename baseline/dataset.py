@@ -154,9 +154,13 @@ class MusicDataset(torch.utils.data.Dataset):
                 for i in range(1, self.encoding['max_bar'] + 1)
             }))
             self.bar_indices_of_name = {
-                name: np.nonzero(np.isin(self.caches[name][:-self.max_seq_len], self.bar_codes))[0]
-                for name in self.names
+                name: np.nonzero(np.isin(self.caches[name], self.bar_codes))[0]
+                for name in tqdm(self.names, desc='Caching bar indices')
             }
+            for name, bar_indices in self.bar_indices_of_name.items():
+                if bar_indices.shape[0] == 0:
+                    print('Sample', name, 'have no bars. Panic')
+                    raise ValueError()
 
     def load_caches(self, num_worker):
         cache_path = self.data_dir / f'{self.representation}.pickle'
@@ -201,9 +205,9 @@ class MusicDataset(torch.utils.data.Dataset):
             seq = representation_mmm.track_list_to_code(track_list, self.indexer)
         else: # is remi+
             seq = self.caches[name]
-            # random start from middle of piece
             bar_indices = None
             if self.use_augmentation:
+                # random start from middle of piece
                 if self.max_seq_len is not None and seq.shape[0] > self.max_seq_len:
                     # find index of all bar tokens
                     bar_indices = self.bar_indices_of_name[name]
