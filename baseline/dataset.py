@@ -148,14 +148,15 @@ class MusicDataset(torch.utils.data.Dataset):
             self.encoding['max_bar'] = max_bar
         self.load_caches(num_worker)
 
-        if self.representation == 'remi':
+        if self.representation == 'remi' and self.use_augmentation:
+            print('Caching bar indices for augmentation')
             self.bar_codes = np.array(sorted({
                 self.indexer[f'bar_{i}']
                 for i in range(1, self.encoding['max_bar'] + 1)
             }))
             self.bar_indices_of_name = {
                 name: np.nonzero(np.isin(self.caches[name], self.bar_codes))[0]
-                for name in tqdm(self.names, desc='Caching bar indices')
+                for name in self.names
             }
             for name, bar_indices in self.bar_indices_of_name.items():
                 if bar_indices.shape[0] == 0:
