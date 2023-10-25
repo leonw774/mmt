@@ -263,7 +263,9 @@ def main():
     )
     logging.info(f"Dataset size: {len(test_dataset)}")
     if args.n_samples is None:
-        args.n_samples = len(test_dataset)
+        with open(args.names, 'r') as test_names_file:
+            args.n_samples = len(test_names_file.readlines())
+    logging.info(f"N sample: {len(args.samples)}")
 
     # Create the model
     logging.info(f"Creating the model...")
