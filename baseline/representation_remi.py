@@ -56,7 +56,7 @@ DURATION_MAP = {
     for i in range(1, MAX_DURATION + 1)
 }
 
-KNOWN_VELOCITIES = [16, 32, 48, 64, 80, 96, 112]
+KNOWN_VELOCITIES = list(range(4, 127, 4))
 
 VELOCITY_MAP = {
     i: int(max(1, min(7, round(i / 16))) * 16)
