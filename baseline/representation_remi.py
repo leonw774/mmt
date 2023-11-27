@@ -1,6 +1,7 @@
 """Representation utilities."""
 import pathlib
 import pprint
+from decimal import Decimal, ROUND_HALF_UP
 
 import muspy
 import numpy as np
@@ -56,11 +57,18 @@ DURATION_MAP = {
     for i in range(1, MAX_DURATION + 1)
 }
 
-KNOWN_VELOCITIES = list(range(4, 127, 4))
+VELOCITY_STEP = 4
+KNOWN_VELOCITIES = list(range(VELOCITY_STEP, 127, VELOCITY_STEP))
 
 VELOCITY_MAP = {
-    i: int(max(1, min(7, round(i / 16))) * 16)
+    i:
+    int((i / Decimal(VELOCITY_STEP)).quantize(0, ROUND_HALF_UP))
     for i in range(1,128)
+}
+
+VELOCITY_MAP = {
+    k: max(1, min(31, v)) * VELOCITY_STEP
+    for k, v in VELOCITY_MAP.items()
 }
 
 ## Instrument
