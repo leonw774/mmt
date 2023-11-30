@@ -164,14 +164,20 @@ class MusicDataset(torch.utils.data.Dataset):
                     raise ValueError()
 
     def load_caches(self, num_worker):
-        cache_path = self.data_dir / f'{self.representation}.pickle'
+        if self.max_bar is not None:
+            max_bar_dec = f'.maxbar{self.max_bar}'
+        else:
+            max_bar_dec = ''
+        cache_path = self.data_dir / f'{self.representation}.pickle{max_bar_dec}'
         if cache_path.is_file():
             print('Cache path:', cache_path, 'File exists, using it.')
             with open(cache_path, 'rb') as cache_file:
                 obj = pickle.load(cache_file)
                 self.caches = obj[0]
                 self.valid_names = obj[1]
+            print(f'Load {len(self.valid_names)} valid names')
             self.names = list(set(self.valid_names).intersection(self.names))
+            print(f'Use {len(self.names)} names')
         else:
             print('Cache path:', cache_path, 'File not found, creating it.')
             with multiprocessing.Pool(num_worker) as pool:
@@ -252,7 +258,7 @@ def main():
     if args.dataset is not None:
         if args.names is None:
             args.names = pathlib.Path(
-                f"data/{args.dataset}/processed/names.txt"
+                f"data/{args.dataset}/processed/json-names.txt"
             )
         if args.in_dir is None:
             args.in_dir = pathlib.Path(f"data/{args.dataset}/processed/")
