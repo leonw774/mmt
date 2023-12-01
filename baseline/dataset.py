@@ -198,7 +198,6 @@ class MusicDataset(torch.utils.data.Dataset):
                             self.caches[self.names[i]] = codes
                 except Exception as e:
                     print(len(self.caches))
-                    print([codes.shape[0] for codes in self.caches.values()])
                     raise e
                 self.names = self.valid_names
 
