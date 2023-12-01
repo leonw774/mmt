@@ -86,7 +86,10 @@ def parse_args(args=None, namespace=None):
 
 
 def get_code(name, encode_fn, data_dir, encoding, indexer):
-    music = muspy.load(data_dir / 'json' / f"{name}.json")
+    try:
+        music = muspy.load(data_dir / 'json' / f"{name}.json")
+    except FileNotFoundError:
+        return None
     try:
         return encode_fn(music, encoding, indexer)
     except AssertionError:
