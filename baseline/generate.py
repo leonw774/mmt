@@ -265,7 +265,7 @@ def main():
     if args.n_samples is None:
         with open(args.names, 'r') as test_names_file:
             args.n_samples = len(test_names_file.readlines())
-    logging.info(f"N sample: {len(args.n_samples)}")
+    logging.info(f"N sample: {args.n_samples}")
 
     # Create the model
     logging.info(f"Creating the model...")
